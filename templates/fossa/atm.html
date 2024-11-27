@@ -24,7 +24,7 @@
 
           <q-tab
             name="ln"
-            label="lightnig"
+            label="lightning"
             @click="updateTabAndClear(val)"
           ></q-tab>
 
@@ -61,13 +61,10 @@
             <div class="text-h8">LNURL withdraw</div>
             <div class="text-center">
               <a class="text-secondary" :href="'lightning:' + qr_value">
-                <q-responsive :ratio="1" class="q-mx-md">
-                  <qrcode
+                  <lnbits-qrcode
                     :value="qr_value"
-                    :options="{width: 800}"
                     class="rounded-borders"
-                  ></qrcode>
-                </q-responsive>
+                  ></lnbits-qrcode>
               </a>
             </div>
 
@@ -175,7 +172,7 @@
           unelevated
           type="a"
           target="_blank"
-          :href="'/lnurldevice/print/' + recentpay"
+          :href="'/fossa/print/' + recentpay"
         ></q-btn>
       </q-card-section>
     </q-card>
@@ -188,7 +185,7 @@
     el: '#vue',
     mixins: [windowMixin],
     delimiters: ['${', '}'],
-    data: function () {
+    data() {
       return {
         device_id: '{{device_id}}',
         qr_value: '{{lnurl}}',
@@ -210,7 +207,7 @@
         try {
           const response = await LNbits.api.request(
             'GET',
-            `/lnurldevice/api/v1/ln/${this.device_id}/${this.p}/${this.ln}`,
+            `/fossa/api/v1/ln/${this.device_id}/${this.p}/${this.ln}`,
             ''
           )
           console.log(response.data)
@@ -241,7 +238,7 @@
         try {
           const response = await LNbits.api.request(
             'GET',
-            `/lnurldevice/api/v1/boltz/${this.device_id}/${this.p}/${this.onchain_liquid}/${this.address}`,
+            `/fossa/api/v1/boltz/${this.device_id}/${this.p}/${this.onchain_liquid}/${this.address}`,
             ''
           )
           if (response.data) {
@@ -294,7 +291,7 @@
       }
     },
     watch: {
-      tab: function (newVal, oldVal) {
+      tab(newVal, oldVal) {
         if (newVal === 'ln') {
           this.launchFunction()
         }

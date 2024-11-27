@@ -114,7 +114,7 @@ window.app = Vue.createApp({
         }
       }
       LNbits.api
-        .request('POST', '/fossa/api/v1', wallet, updatedData)
+        .request('POST', '/fossa/api/v1/fossa', wallet, updatedData)
         .then(response => {
           this.fossa.push(response.data)
           this.formDialog.show = false
@@ -124,7 +124,7 @@ window.app = Vue.createApp({
     },
     getFossa() {
       LNbits.api
-        .request('GET', '/fossa/api/v1', this.g.user.wallets[0].adminkey)
+        .request('GET', '/fossa/api/v1/fossa', this.g.user.wallets[0].adminkey)
         .then(response => {
           if (response.data) {
             this.fossa = response.data
@@ -135,9 +135,9 @@ window.app = Vue.createApp({
     getAtmPayments() {
       LNbits.api
         .request('GET', '/fossa/api/v1/atm', this.g.user.wallets[0].adminkey)
-        .then(function (response) {
+        .then((response) => {
           if (response.data) {
-            this.atmLinks = response.data.map(mapatmpayments)
+            this.atmLinks = response.data
           }
         })
         .catch(LNbits.utils.notifyApiError)
@@ -160,17 +160,17 @@ window.app = Vue.createApp({
             .catch(LNbits.utils.notifyApiError)
         })
     },
-    deleteATMLink(atmId) {
+    deleteAtmLink(atmId) {
       LNbits.utils
         .confirmDialog('Are you sure you want to delete this atm link?')
-        .onOk(function () {
+        .onOk(() => {
           LNbits.api
             .request(
               'DELETE',
               '/fossa/api/v1/atm/' + atmId,
               this.g.user.wallets[0].adminkey
             )
-            .then(function (response) {
+            .then(() => {
               this.atmLinks = _.reject(this.atmLinks, function (obj) {
                 return obj.id === atmId
               })
@@ -214,7 +214,7 @@ window.app = Vue.createApp({
       }
 
       LNbits.api
-        .request('PUT', '/fossa/api/v1/' + updatedData.id, wallet, updatedData)
+        .request('PUT', '/fossa/api/v1/fossa/' + updatedData.id, wallet, updatedData)
         .then(response => {
           this.fossa = _.reject(this.fossa, obj => {
             return obj.id === updatedData.id
@@ -240,18 +240,14 @@ window.app = Vue.createApp({
     exportAtmCSV() {
       LNbits.utils.exportCSV(this.atmTable.columns, this.atmLinks)
     },
-    openATMLink(deviceid, p) {
-      const url =
-        this.location + '/fossa/api/v1/lnurl/' + deviceid + '?atm=1&p=' + p
-      data = {
-        url: url
-      }
+    openAtmLink(deviceid, p) {
+      const url = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/${deviceid}?atm=1&p=${p}`
       LNbits.api
         .request(
           'POST',
           '/fossa/api/v1/lnurlencode',
           this.g.user.wallets[0].adminkey,
-          data
+          { url: url }
         )
         .then(response => {
           window.open('/fossa/atm?lightning=' + response.data)
@@ -261,7 +257,7 @@ window.app = Vue.createApp({
   },
   created() {
     this.getFossa()
-    // this.getatmpayments()
+    this.getAtmPayments()
     LNbits.api
       .request('GET', '/api/v1/currencies')
       .then(response => {
