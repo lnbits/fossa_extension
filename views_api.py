@@ -7,6 +7,7 @@ from lnbits.decorators import (
     require_admin_key,
     require_invoice_key,
 )
+
 from .crud import (
     create_fossa,
     delete_fossa,

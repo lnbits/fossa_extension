@@ -135,7 +135,7 @@ window.app = Vue.createApp({
     getAtmPayments() {
       LNbits.api
         .request('GET', '/fossa/api/v1/atm', this.g.user.wallets[0].adminkey)
-        .then((response) => {
+        .then(response => {
           if (response.data) {
             this.atmLinks = response.data
           }
@@ -214,7 +214,12 @@ window.app = Vue.createApp({
       }
 
       LNbits.api
-        .request('PUT', '/fossa/api/v1/fossa/' + updatedData.id, wallet, updatedData)
+        .request(
+          'PUT',
+          '/fossa/api/v1/fossa/' + updatedData.id,
+          wallet,
+          updatedData
+        )
         .then(response => {
           this.fossa = _.reject(this.fossa, obj => {
             return obj.id === updatedData.id
@@ -247,7 +252,7 @@ window.app = Vue.createApp({
           'POST',
           '/fossa/api/v1/lnurlencode',
           this.g.user.wallets[0].adminkey,
-          { url: url }
+          {url: url}
         )
         .then(response => {
           window.open('/fossa/atm?lightning=' + response.data)

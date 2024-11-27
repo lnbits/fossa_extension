@@ -167,7 +167,9 @@ async def get_fossa_payment_lightning(fossa_id: str, p: str, ln: str) -> str:
     return fossa_payment.id
 
 
-@fossa_api_atm_router.get("/api/v1/boltz/{fossa_id}/{payload}/{onchain_liquid}/{address}")
+@fossa_api_atm_router.get(
+    "/api/v1/boltz/{fossa_id}/{payload}/{onchain_liquid}/{address}"
+)
 async def get_fossa_payment_boltz(
     fossa_id: str, payload: str, onchain_liquid: str, address: str
 ):
