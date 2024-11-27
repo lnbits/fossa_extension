@@ -8,6 +8,7 @@ window.app = Vue.createApp({
       location: window.location.hostname,
       filter: '',
       currency: 'USD',
+      deviceString: '',
       lnurlValue: '',
       fossa: [],
       atmLinks: [],
@@ -21,16 +22,10 @@ window.app = Vue.createApp({
             field: 'title'
           },
           {
-            name: 'theId',
+            name: 'currency',
             align: 'left',
-            label: 'id',
-            field: 'id'
-          },
-          {
-            name: 'key',
-            align: 'left',
-            label: 'key',
-            field: 'key'
+            label: 'currency',
+            field: 'currency'
           },
           {
             name: 'wallet',
@@ -39,16 +34,10 @@ window.app = Vue.createApp({
             field: 'wallet'
           },
           {
-            name: 'device',
+            name: 'key',
             align: 'left',
-            label: 'device',
-            field: 'device'
-          },
-          {
-            name: 'currency',
-            align: 'left',
-            label: 'currency',
-            field: 'currency'
+            label: 'key',
+            field: 'key'
           }
         ],
         pagination: {
@@ -97,35 +86,28 @@ window.app = Vue.createApp({
     }
   },
   methods: {
-    cancellnurldevice() {
-      this.formDialoglnurldevice.show = false
-      this.clearFormDialoglnurldevice()
+    cancelFormDialog() {
+      this.formDialog.show = false
+      this.clearFormDialog()
     },
     closeFormDialog() {
-      this.clearFormDialoglnurldevice()
+      this.clearFormDialog()
       this.formDialog.data = {
         is_unique: false
       }
     },
-    sendFormDatalnurldevice() {
-      if (!this.formDialoglnurldevice.data.profit) {
-        this.formDialoglnurldevice.data.profit = 0
+    sendFormData() {
+      if (!this.formDialog.data.profit) {
+        this.formDialog.data.profit = 0
       }
-      if (this.formDialoglnurldevice.data.id) {
-        this.updatelnurldevice(
-          this.g.user.wallets[0].adminkey,
-          this.formDialoglnurldevice.data
-        )
+      if (this.formDialog.data.id) {
+        this.updateFossa(this.g.user.wallets[0].adminkey, this.formDialog.data)
       } else {
-        this.createlnurldevice(
-          this.g.user.wallets[0].adminkey,
-          this.formDialoglnurldevice.data
-        )
+        this.createFossa(this.g.user.wallets[0].adminkey, this.formDialog.data)
       }
     },
-
-    createlnurldevice(wallet, data) {
-      var updatedData = {}
+    createFossa(wallet, data) {
+      const updatedData = {}
       for (const property in data) {
         if (data[property]) {
           updatedData[property] = data[property]
@@ -135,8 +117,8 @@ window.app = Vue.createApp({
         .request('POST', '/fossa/api/v1', wallet, updatedData)
         .then(response => {
           this.fossa.push(response.data)
-          this.formDialoglnurldevice.show = false
-          this.clearFormDialoglnurldevice()
+          this.formDialog.show = false
+          this.clearFormDialog()
         })
         .catch(LNbits.utils.notifyApiError)
     },
@@ -150,33 +132,27 @@ window.app = Vue.createApp({
         })
         .catch(LNbits.utils.notifyApiError)
     },
-    getatmpayments: function () {
+    getAtmPayments() {
       LNbits.api
-        .request(
-          'GET',
-          '/lnurldevice/api/v1/atm',
-          this.g.user.wallets[0].adminkey
-        )
+        .request('GET', '/fossa/api/v1/atm', this.g.user.wallets[0].adminkey)
         .then(function (response) {
           if (response.data) {
             this.atmLinks = response.data.map(mapatmpayments)
           }
         })
-        .catch(function (error) {
-          LNbits.utils.notifyApiError(error)
-        })
+        .catch(LNbits.utils.notifyApiError)
     },
-    deleteFossa: function (fossaId) {
+    deleteFossa(fossaId) {
       LNbits.utils
         .confirmDialog('Are you sure you want to delete this pay link?')
         .onOk(() => {
           LNbits.api
             .request(
               'DELETE',
-              '/lnurldevice/api/v1/lnurlpos/' + fossaId,
+              '/fossa/api/v1/' + fossaId,
               this.g.user.wallets[0].adminkey
             )
-            .then(response => {
+            .then(() => {
               this.fossa = _.reject(this.fossa, obj => {
                 return obj.id === fossaId
               })
@@ -184,14 +160,14 @@ window.app = Vue.createApp({
             .catch(LNbits.utils.notifyApiError)
         })
     },
-    deleteATMLink: function (atmId) {
+    deleteATMLink(atmId) {
       LNbits.utils
         .confirmDialog('Are you sure you want to delete this atm link?')
         .onOk(function () {
           LNbits.api
             .request(
               'DELETE',
-              '/lnurldevice/api/v1/atm/' + atmId,
+              '/fossa/api/v1/atm/' + atmId,
               this.g.user.wallets[0].adminkey
             )
             .then(function (response) {
@@ -199,39 +175,38 @@ window.app = Vue.createApp({
                 return obj.id === atmId
               })
             })
-            .catch(function (error) {
-              LNbits.utils.notifyApiError(error)
-            })
+            .catch(LNbits.utils.notifyApiError)
         })
     },
-    openUpdatelnurldeviceLink: function (lnurldeviceId) {
-      var lnurldevice = _.findWhere(this.lnurldeviceLinks, {
-        id: lnurldeviceId
+    openUpdateFossa(fossaId) {
+      const fossa = _.findWhere(this.fossa, {
+        id: fossaId
       })
-      this.formDialoglnurldevice.data = _.clone(lnurldevice._data)
-      if (lnurldevice.device == 'atm' && lnurldevice.extra == 'boltz') {
+      this.formDialog.data = _.clone(fossa)
+      if (fossa.boltz) {
         this.boltzToggleState = true
       } else {
         this.boltzToggleState = false
       }
-      this.formDialoglnurldevice.show = true
+      this.formDialog.show = true
     },
-    openlnurldeviceSettings: function (lnurldeviceId) {
-      var lnurldevice = _.findWhere(this.lnurldeviceLinks, {
-        id: lnurldeviceId
+    openFossaSettings(fossaId) {
+      const fossa = _.findWhere(this.fossa, {
+        id: fossaId
       })
-      this.settingsDialog.data = _.clone(lnurldevice._data)
+      this.deviceString = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/${fossa.id},${fossa.key},${fossa.currency}`
+      this.settingsDialog.data = _.clone(fossa)
       this.settingsDialog.show = true
     },
     handleBoltzToggleChange(val) {
       if (val) {
-        this.formDialoglnurldevice.data.extra = 'boltz'
+        this.formDialog.data.boltz = true
       } else {
-        this.formDialoglnurldevice.data.extra = ''
+        this.formDialog.data.boltz = false
       }
     },
-    updateFossa: function (wallet, data) {
-      var updatedData = {}
+    updateFossa(wallet, data) {
+      const updatedData = {}
       for (const property in data) {
         if (data[property]) {
           updatedData[property] = data[property]
@@ -245,12 +220,10 @@ window.app = Vue.createApp({
             return obj.id === updatedData.id
           })
           this.fossa.push(response.data)
-          this.formDialoglnurldevice.show = false
+          this.formDialog.show = false
           this.clearFormDialog()
         })
-        .catch(function (error) {
-          LNbits.utils.notifyApiError(error)
-        })
+        .catch(LNbits.utils.notifyApiError)
     },
     clearFormDialog() {
       this.formDialog.data = {
@@ -261,38 +234,29 @@ window.app = Vue.createApp({
         title: ''
       }
     },
-    exportlnurldeviceCSV: function () {
-      LNbits.utils.exportCSV(
-        this.lnurldevicesTable.columns,
-        this.lnurldeviceLinks
-      )
+    exportFossaCSV() {
+      LNbits.utils.exportCSV(this.fossaTable.columns, this.fossa)
     },
-    exportATMCSV: function () {
+    exportAtmCSV() {
       LNbits.utils.exportCSV(this.atmTable.columns, this.atmLinks)
     },
-    openATMLink: function (deviceid, p) {
-      var url =
-        this.location +
-        '/lnurldevice/api/v1/lnurl/' +
-        deviceid +
-        '?atm=1&p=' +
-        p
+    openATMLink(deviceid, p) {
+      const url =
+        this.location + '/fossa/api/v1/lnurl/' + deviceid + '?atm=1&p=' + p
       data = {
         url: url
       }
       LNbits.api
         .request(
           'POST',
-          '/lnurldevice/api/v1/lnurlencode',
+          '/fossa/api/v1/lnurlencode',
           this.g.user.wallets[0].adminkey,
           data
         )
-        .then(function (response) {
-          window.open('/lnurldevice/atm?lightning=' + response.data)
+        .then(response => {
+          window.open('/fossa/atm?lightning=' + response.data)
         })
-        .catch(function (error) {
-          LNbits.utils.notifyApiError(error)
-        })
+        .catch(LNbits.utils.notifyApiError)
     }
   },
   created() {
@@ -301,7 +265,7 @@ window.app = Vue.createApp({
     LNbits.api
       .request('GET', '/api/v1/currencies')
       .then(response => {
-        this.currency = ['sat', 'USD', ...response.data]
+        this.currency = ['USD', ...response.data]
       })
       .catch(LNbits.utils.notifyApiError)
   }

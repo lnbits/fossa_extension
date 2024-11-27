@@ -69,7 +69,7 @@ async def api_fossa_update(data: CreateFossa, fossa_id: str) -> Fossa:
     return await update_fossa(fossa)
 
 
-@fossa_api_router.delete("/fossa_id}", dependencies=[Depends(require_admin_key)])
+@fossa_api_router.delete("/{fossa_id}", dependencies=[Depends(require_admin_key)])
 async def api_fossa_delete(fossa_id: str):
     fossa = await get_fossa(fossa_id)
     if not fossa:

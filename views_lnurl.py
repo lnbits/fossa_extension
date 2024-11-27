@@ -62,7 +62,7 @@ async def fossa_lnurl_params(
         return {
             "tag": "withdrawRequest",
             "callback": str(
-                request.url_for("fossa.lnurl_callback", paymentid=fossa_payment.id)
+                request.url_for("fossa.lnurl_callback", payment_id=fossa_payment.id)
             ),
             "k1": fossa_payment.payload,
             "minWithdrawable": price_msat,
@@ -83,7 +83,7 @@ async def fossa_lnurl_params(
     return {
         "tag": "payRequest",
         "callback": str(
-            request.url_for("fossa.lnurl_callback", paymentid=fossa_payment.id)
+            request.url_for("fossa.lnurl_callback", payment_id=fossa_payment.id)
         ),
         "minSendable": price_msat * 1000,
         "maxSendable": price_msat * 1000,
@@ -92,7 +92,7 @@ async def fossa_lnurl_params(
 
 
 @fossa_lnurl_router.get(
-    "/api/v1/lnurl/cb/{paymentid}",
+    "/api/v1/lnurl/cb/{payment_id}",
     status_code=HTTPStatus.OK,
     name="fossa.lnurl_callback",
 )

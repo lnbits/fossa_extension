@@ -68,7 +68,7 @@ async def create_fossa_payment(
         payhash=payhash,
         sats=sats,
     )
-    await db.update("fossa.fossa_payment", payment)
+    await db.insert("fossa.fossa_payment", payment)
     return payment
 
 
@@ -85,6 +85,7 @@ async def get_fossa_payment(
     return await db.fetchone(
         "SELECT * FROM fossa.fossa_payment WHERE id = :id",
         {"id": fossa_payment_id},
+        FossaPayment,
     )
 
 
@@ -109,6 +110,7 @@ async def get_fossa_payment_by_payhash(
     return await db.fetchone(
         "SELECT * FROM fossa.fossa_payment WHERE payhash = :payhash",
         {"payhash": payhash},
+        FossaPayment,
     )
 
 
