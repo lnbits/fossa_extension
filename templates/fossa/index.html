@@ -1,0 +1,451 @@
+{% extends "base.html" %} {% from "macros.jinja" import window_vars with context
+%} {% block page %}
+<div class="row q-col-gutter-md">
+  <div class="col-12 col-md-7 q-gutter-y-md">
+    <q-card>
+      <q-card-section>
+        <q-btn unelevated color="primary" @click="formDialogfossa.show = true"
+          >New FOSSA
+        </q-btn>
+      </q-card-section>
+    </q-card>
+
+    <q-card>
+      <q-card-section>
+        <div class="row items-center no-wrap q-mb-md">
+          <div class="col">
+            <h5 class="text-subtitle1 q-my-none">FOSSA</h5>
+          </div>
+
+          <div class="col-auto">
+            <q-input
+              borderless
+              dense
+              debounce="300"
+              v-model="filter"
+              placeholder="Search"
+            >
+              <template v-slot:append>
+                <q-icon name="search"></q-icon>
+              </template>
+            </q-input>
+            <q-btn flat color="grey" @click="exportfossaCSV"
+              >Export to CSV</q-btn
+            >
+          </div>
+        </div>
+        <q-table
+          flat
+          dense
+          :rows="fossaLinks"
+          row-key="id"
+          :columns="fossasTable.columns"
+          :pagination.sync="fossasTable.pagination"
+          :filter="filter"
+        >
+          <template v-slot:header="props">
+            <q-tr :props="props">
+              <q-th style="width: 5%"></q-th>
+              <q-th style="width: 5%"></q-th>
+              <q-th style="width: 5%"></q-th>
+              <q-th style="width: 5%"></q-th>
+
+              <q-th
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                auto-width
+              >
+                <div v-if="col.name == 'id'"></div>
+                <div v-else v-text="col.label"></div>
+              </q-th>
+              <!-- <q-th auto-width></q-th> -->
+            </q-tr>
+          </template>
+
+          <template v-slot:body="props">
+            <q-tr :props="props">
+              <q-td>
+                <q-btn
+                  flat
+                  dense
+                  size="xs"
+                  @click="openUpdatefossaLink(props.row.id)"
+                  icon="edit"
+                  color="blue"
+                >
+                  <q-tooltip>Edit LNURLDevice</q-tooltip>
+                </q-btn>
+              </q-td>
+              <q-td>
+                <q-btn
+                  flat
+                  dense
+                  size="xs"
+                  @click="deletefossaLink(props.row.id)"
+                  icon="cancel"
+                  color="pink"
+                >
+                  <q-tooltip> Delete LNURLDevice </q-tooltip>
+                </q-btn>
+              </q-td>
+              <q-td>
+                <q-btn
+                  flat
+                  dense
+                  size="xs"
+                  @click="openfossaSettings(props.row.id)"
+                  icon="perm_data_setting"
+                  color="primary"
+                >
+                  <q-tooltip> LNURLDevice Settings </q-tooltip>
+                </q-btn>
+              </q-td>
+              <q-td>
+                <q-btn
+                  v-if="props.row.device == 'switch'"
+                  :disable="protocol == 'http:'"
+                  flat
+                  unelevated
+                  dense
+                  size="xs"
+                  icon="visibility"
+                  :color="($q.dark.isActive) ? 'grey-7' : 'grey-5'"
+                  @click="openQrCodeDialog(props.row.id)"
+                  ><q-tooltip v-if="protocol == 'http:'">
+                    LNURLs only work over HTTPS </q-tooltip
+                  ><q-tooltip v-else> view LNURLS </q-tooltip></q-btn
+                >
+              </q-td>
+              <q-td
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                auto-width
+              >
+                <div v-if="col.name == 'id'"></div>
+                <div v-else v-text="col.value"></div>
+              </q-td>
+            </q-tr>
+          </template>
+        </q-table>
+      </q-card-section>
+    </q-card>
+
+    <q-card v-if="atmLinks.length > 0">
+      <q-card-section>
+        <div class="row items-center no-wrap q-mb-md">
+          <div class="col">
+            <h5 class="text-subtitle1 q-my-none">ATM Payments</h5>
+          </div>
+
+          <div class="col-auto">
+            <q-input
+              borderless
+              dense
+              debounce="300"
+              v-model="filter"
+              placeholder="Search"
+            >
+              <template v-slot:append>
+                <q-icon name="search"></q-icon>
+              </template>
+            </q-input>
+            <q-btn flat color="grey" @click="exportATMCSV">Export to CSV</q-btn>
+          </div>
+        </div>
+        <q-table
+          flat
+          dense
+          :rows="atmLinks"
+          row-key="id"
+          :columns="atmTable.columns"
+          v-model:pagination="atmTable.pagination"
+          :filter="filter"
+        >
+          <template v-slot:header="props">
+            <q-tr :props="props">
+              <q-th style="width: 5%"></q-th>
+              <q-th style="width: 5%"></q-th>
+              <q-th
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                auto-width
+              >
+                <div v-if="col.name == 'id'"></div>
+                <div v-else v-text="col.label"></div>
+              </q-th>
+              <!-- <q-th auto-width></q-th> -->
+            </q-tr>
+          </template>
+
+          <template v-slot:body="props">
+            <q-tr :props="props">
+              <q-td>
+                <q-btn
+                  flat
+                  dense
+                  size="xs"
+                  @click="openATMLink(props.row.deviceid, props.row.payload)"
+                  icon="link"
+                  color="grey"
+                >
+                  <q-tooltip>Open Claim page</q-tooltip>
+                </q-btn>
+              </q-td>
+              <q-td>
+                <q-btn
+                  flat
+                  dense
+                  size="xs"
+                  @click="deleteATMLink(props.row.id)"
+                  icon="cancel"
+                  color="pink"
+                >
+                  <q-tooltip>Delete ATM Claim</q-tooltip>
+                </q-btn>
+              </q-td>
+              <q-td
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                auto-width
+              >
+                <div v-if="col.name == 'id'"></div>
+                <div v-else v-text="col.value"></div>
+              </q-td>
+            </q-tr>
+          </template>
+        </q-table>
+      </q-card-section>
+    </q-card>
+  </div>
+
+  <div class="col-12 col-md-5 q-gutter-y-md">
+    <q-card>
+      <q-card-section>
+        <h6 class="text-subtitle1 q-my-none">
+          {{SITE_TITLE}} FOSSA ATM Extension (0.4)
+        </h6>
+      </q-card-section>
+      <q-separator></q-separator>
+      <q-card-section>
+        <p>
+          For LNURL based Points of Sale, ATMs, and relay devices<br />
+          LNPoS:
+          <a class="text-secondary" href="https://lnbits.github.io/lnpos">
+            https://lnbits.github.io/lnpos</a
+          ><br />
+          bitcoinSwitch:
+          <a
+            class="text-secondary"
+            href="https://github.com/lnbits/bitcoinSwitch"
+          >
+            https://github.com/lnbits/bitcoinSwitch</a
+          ><br />
+          FOSSA:
+          <a class="text-secondary" href="https://github.com/lnbits/fossa">
+            https://github.com/lnbits/fossa</a
+          ><br />
+          <small>
+            Created by,
+            <a class="text-secondary" href="https://github.com/benarc"
+              >Ben Arc</a
+            >,
+            <a class="text-secondary" href="https://github.com/blackcoffeexbt"
+              >BC</a
+            >,
+            <a class="text-secondary" href="https://github.com/motorina0"
+              >Vlad Stan</a
+            >,
+            <a class="text-secondary" href="https://github.com/dni">dni</a>
+          </small>
+        </p>
+        <p class="text-warning">
+          WARNING: updating the switches amount, duration or pin will change the
+          QR code.
+        </p>
+      </q-card-section>
+    </q-card>
+  </div>
+
+  <q-dialog
+    v-model="settingsDialog.show"
+    deviceition="top"
+    @hide="closeFormDialog"
+  >
+    <div class="text-h6">Device string</div>
+    <q-btn
+      dense
+      outline
+      unelevated
+      color="primary"
+      size="md"
+      @click="copyText(wslocation + '/api/v1/ws/' + settingsDialog.data.id, 'Link copied to clipboard!')"
+    >
+      <span v-text="wslocation + '/api/v1/ws/' + settingsDialog.data.id"></span>
+      <q-tooltip> Click to copy URL </q-tooltip>
+    </q-btn>
+  </q-dialog>
+
+  <q-dialog
+    v-model="formDialogfossa.show"
+    deviceition="top"
+    @hide="closeFormDialog"
+  >
+    <q-card class="q-pa-lg q-pt-xl lnbits__dialog-card">
+      <q-form @submit="sendFormDatafossa" class="q-gutter-md">
+        <h5
+          v-html="formDialogfossa.data.device"
+          v-if="formDialogfossa.data.id"
+        ></h5>
+        <q-input
+          filled
+          dense
+          v-model.trim="formDialogfossa.data.title"
+          type="text"
+          label="Title"
+        ></q-input>
+        <q-select
+          filled
+          dense
+          emit-value
+          v-model="formDialogfossa.data.wallet"
+          :options="g.user.walletOptions"
+          label="Wallet *"
+        ></q-select>
+        <q-select
+          filled
+          dense
+          v-model.trim="formDialogfossa.data.currency"
+          type="text"
+          label="Fiat currency for device"
+          :options="currency"
+        ></q-select>
+        <q-option-group
+          v-if="!formDialogfossa.data.id"
+          v-model.trim="formDialogfossa.data.device"
+          :options="devices"
+          color="primary"
+          label="Type of device"
+          @input="formDialogfossa.data.extra = []"
+        ></q-option-group>
+        <q-input
+          v-if="formDialogfossa.data.device != 'switch'"
+          filled
+          dense
+          v-model.trim="formDialogfossa.data.profit"
+          type="number"
+          max="90"
+          label="Profit margin (% added to invoices/deducted from faucets)"
+        ></q-input>
+        <div v-else>
+          <q-btn
+            unelevated
+            class="q-mb-lg"
+            round
+            size="sm"
+            icon="add"
+            @click="addSwitch"
+            v-model="formDialogfossa.data.extra"
+            color="primary"
+          ></q-btn>
+          <q-btn
+            unelevated
+            class="q-mb-lg"
+            round
+            size="sm"
+            icon="remove"
+            @click="removeSwitch"
+            v-model="formDialogfossa.data.extra"
+            color="primary"
+          ></q-btn>
+          <div v-for="_switch in formDialogfossa.data.extra">
+            <div class="row">
+              <div class="col">
+                <q-input
+                  ref="setAmount"
+                  filled
+                  dense
+                  v-model.trim="_switch.amount"
+                  class="q-pb-md"
+                  :label="'Amount (' + formDialogfossa.data.currency + ') *'"
+                ></q-input>
+              </div>
+              <div class="col q-ml-md">
+                <q-input
+                  filled
+                  dense
+                  v-model.trim="_switch.duration"
+                  type="number"
+                  label="duration (ms)"
+                ></q-input>
+              </div>
+              <div class="col q-ml-md">
+                <q-input
+                  filled
+                  dense
+                  v-model.trim="_switch.pin"
+                  type="number"
+                  label="GPIO pin"
+                ></q-input>
+              </div>
+              <div class="col q-ml-md">
+                <q-checkbox
+                  v-model="_switch.variable"
+                  color="primary"
+                  label="Variable"
+                  size="xs"
+                  dense
+                  ><q-tooltip
+                    >Variable time (Amount * Duration)</q-tooltip
+                  ></q-checkbox
+                >
+                <q-checkbox
+                  v-model="_switch.comment"
+                  color="primary"
+                  label="Comment"
+                  size="xs"
+                  dense
+                >
+                  <q-tooltip>Enable LNURLp comments with payments</q-tooltip>
+                </q-checkbox>
+              </div>
+            </div>
+          </div>
+        </div>
+        <q-toggle
+          v-if="formDialogfossa.data.device == 'atm'"
+          :label="boltzToggleState ? 'Onchain/liquid support enabled (boltz ext must be enabled)' : 'Onchain/liquid support disabled'"
+          v-model="boltzToggleState"
+          @input="handleBoltzToggleChange"
+        ></q-toggle>
+        <div class="row q-mt-lg">
+          <q-btn
+            v-if="formDialogfossa.data.id"
+            unelevated
+            color="primary"
+            :disable=" formDialogfossa.data.title == ''"
+            type="submit"
+            >Update fossa</q-btn
+          >
+          <q-btn
+            v-else
+            unelevated
+            color="primary"
+            :disable="formDialogfossa.data.title == ''"
+            type="submit"
+            >Create fossa</q-btn
+          >
+          <q-btn @click="cancelfossa" flat color="grey" class="q-ml-auto"
+            >Cancel</q-btn
+          >
+        </div>
+      </q-form>
+    </q-card>
+  </q-dialog>
+</div>
+{% endblock %} {% block scripts %} {{ window_vars(user) }}
+<script src="{{ static_url_for('fossa/static', path='js/index.js') }}"></script>
+{% endblock %}

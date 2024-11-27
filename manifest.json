@@ -1,0 +1,9 @@
+{
+  "repos": [
+    {
+      "id": "fossa",
+      "organisation": "lnbits",
+      "repository": "fossa_extension"
+    }
+  ]
+}
