@@ -1,4 +1,5 @@
 {
+  "id": "fossa",
   "name": "FOSSA",
   "short_description": "FOSSA is a DIY ATM",
   "tile": "/fossa/static/image/fossa.png",
