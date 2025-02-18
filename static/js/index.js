@@ -62,13 +62,28 @@ window.app = Vue.createApp({
             name: 'sats',
             align: 'left',
             label: 'Sats',
-            field: 'sats'
+            field: 'sats',
+            sortable: true
           },
           {
             name: 'time',
             align: 'left',
             label: 'Date',
-            field: 'time'
+            field: row => row.timestamp, // Use function to ensure sorting works
+            format: val =>
+              val
+                .toLocaleString('en-GB', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true,
+                  timeZoneName: 'short'
+                })
+                .replace(',', ''),
+            sortable: true
           }
         ],
         pagination: {
@@ -81,7 +96,9 @@ window.app = Vue.createApp({
       },
       formDialog: {
         show: false,
-        data: {}
+        data: {
+          boltz: false
+        }
       }
     }
   },
@@ -138,6 +155,11 @@ window.app = Vue.createApp({
         .then(response => {
           if (response.data) {
             this.atmLinks = response.data
+              .map(atm => ({
+                ...atm,
+                timestamp: new Date(atm.timestamp) // Ensure it's a Date object
+              }))
+              .sort((a, b) => b.timestamp - a.timestamp)
           }
         })
         .catch(LNbits.utils.notifyApiError)
@@ -197,13 +219,6 @@ window.app = Vue.createApp({
       this.deviceString = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/${fossa.id},${fossa.key},${fossa.currency}`
       this.settingsDialog.data = _.clone(fossa)
       this.settingsDialog.show = true
-    },
-    handleBoltzToggleChange(val) {
-      if (val) {
-        this.formDialog.data.boltz = true
-      } else {
-        this.formDialog.data.boltz = false
-      }
     },
     updateFossa(wallet, data) {
       const updatedData = {}

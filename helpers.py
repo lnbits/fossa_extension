@@ -7,12 +7,12 @@ from embit import compact
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 
 from .crud import create_fossa_payment, get_recent_fossa_payment
-from .models import Fossa, FossaPayment
+from .models import CreateFossaPayment, Fossa
 
 
 async def register_atm_payment(
     device: Fossa, payload: str
-) -> tuple[Optional[FossaPayment], Optional[int]]:
+) -> tuple[Optional[CreateFossaPayment], Optional[int]]:
     """
     Register an ATM payment to avoid double pull.
     """

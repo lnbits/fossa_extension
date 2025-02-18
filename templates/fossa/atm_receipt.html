@@ -30,19 +30,19 @@
           <div class="col">
             (scan for this page)
             <div>
-              <qrcode
+              <lnbits-qrcode
                 :value="theurl + '/lnurldevice/print/{{id}}'"
                 :options="{width: 200, margin: 1}"
-              ></qrcode>
+              ></lnbits-qrcode>
             </div>
           </div>
           <div class="col">
             (scan for claim page)
             <div>
-              <qrcode
+              <lnbits-qrcode
                 :value="theurl + '/lnurldevice/atm?lightning={{lnurl}}'"
                 :options="{width: 200, margin: 1}"
-              ></qrcode>
+              ></lnbits-qrcode>
             </div>
           </div>
         </div>

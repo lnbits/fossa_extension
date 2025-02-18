@@ -98,25 +98,19 @@ async def atmpage(request: Request, lightning: str):
                 logger.debug(access)
 
     # Attempt to get recent payment information
-    fossa_payment, _ = await register_atm_payment(device, p)
-    assert fossa_payment, "Unable to register payment."
-
+    fossa_payment, sats = await register_atm_payment(device, p)
     # Render the response template
     return fossa_renderer().TemplateResponse(
         "fossa/atm.html",
         {
             "request": request,
             "lnurl": lightning,
-            "amount": fossa_payment.sats,
+            "amount": sats,
             "device_id": device.id,
             "boltz": True if access else False,
             "p": p,
             "recentpay": fossa_payment.id if fossa_payment else False,
-            "used": (
-                True
-                if fossa_payment and fossa_payment.payload == fossa_payment.payhash
-                else False
-            ),
+            "used": (True if not fossa_payment else False),
         },
     )
 

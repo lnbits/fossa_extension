@@ -1,7 +1,7 @@
 {
   "id": "fossa",
   "name": "FOSSA",
-  "short_description": "FOSSA is a DIY ATM",
+  "short_description": "Bitcoin ATMs",
   "tile": "/fossa/static/image/fossa.png",
   "min_lnbits_version": "1.0.0",
   "contributors": [
