@@ -7,12 +7,12 @@ from embit import compact
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 
 from .crud import create_fossa_payment, get_recent_fossa_payment
-from .models import CreateFossaPayment, Fossa
+from .models import Fossa, FossaPayment
 
 
 async def register_atm_payment(
     device: Fossa, payload: str
-) -> tuple[Optional[CreateFossaPayment], Optional[int]]:
+) -> tuple[Optional[FossaPayment], Optional[int]]:
     """
     Register an ATM payment to avoid double pull.
     """
@@ -43,6 +43,8 @@ async def register_atm_payment(
         pin=int(decrypted[0]),
         payhash="payment_hash",
     )
+    if not fossa_payment:
+        raise RuntimeError("Failed making payment")
     price_msat = sats * 1000
     return fossa_payment, price_msat
 

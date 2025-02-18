@@ -58,7 +58,7 @@ async def create_fossa_payment(
     pin: int,
     payhash: str,
     sats: int = 0,
-) -> CreateFossaPayment:
+) -> Optional[FossaPayment]:
     fossa_payment_id = urlsafe_short_hash()
     payment = CreateFossaPayment(
         id=fossa_payment_id,
@@ -69,7 +69,8 @@ async def create_fossa_payment(
         sats=sats,
     )
     await db.insert("fossa.fossa_payment", payment)
-    return payment
+    fossa_payment = await get_fossa_payment(fossa_payment_id)
+    return fossa_payment
 
 
 async def update_fossa_payment(

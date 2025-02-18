@@ -25,7 +25,7 @@ from .crud import (
     update_fossa_payment,
 )
 from .helpers import register_atm_payment
-from .models import FossaPayment, Lnurlencode
+from .models import CreateFossaPayment, FossaPayment, Lnurlencode
 
 fossa_api_atm_router = APIRouter()
 
@@ -151,7 +151,9 @@ async def get_fossa_payment_lightning(fossa_id: str, p: str, ln: str) -> str:
         fossa_payment, price_msat = await register_atm_payment(fossa, p)
         assert fossa_payment
         fossa_payment.payhash = fossa_payment.payload
-        await update_fossa_payment(fossa_payment)
+        await update_fossa_payment(
+            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
+        )
         if ln[:4] == "lnbc":
             await pay_invoice(
                 wallet_id=fossa.wallet,
@@ -217,7 +219,9 @@ async def get_fossa_payment_boltz(
     try:
         fossa_payment.payload = payload
         fossa_payment.payhash = "pending"
-        fossa_payment_updated = await update_fossa_payment(fossa_payment)
+        fossa_payment_updated = await update_fossa_payment(
+            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
+        )
         assert fossa_payment_updated
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -226,12 +230,16 @@ async def get_fossa_payment_boltz(
                 json=data,
             )
             fossa_payment.payhash = fossa_payment.payload
-            fossa_payment_updated = await update_fossa_payment(fossa_payment)
+            fossa_payment_updated = await update_fossa_payment(
+                CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
+            )
             assert fossa_payment_updated
             resp = response.json()
             return resp
     except Exception as exc:
         fossa_payment.payhash = "payment_hash"
-        fossa_payment_updated = await update_fossa_payment(fossa_payment)
+        fossa_payment_updated = await update_fossa_payment(
+            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
+        )
         assert fossa_payment_updated
         return {"status": "ERROR", "reason": str(exc)}
