@@ -16,6 +16,7 @@ from .crud import (
     update_fossa_payment,
 )
 from .helpers import register_atm_payment, xor_decrypt
+from .models import CreateFossaPayment
 
 fossa_lnurl_router = APIRouter()
 
@@ -140,7 +141,9 @@ async def lnurl_callback(
         return {"status": "ERROR", "reason": "Payment already claimed"}
     try:
         fossa_payment.payhash = "pending"
-        fossa_payment_updated = await update_fossa_payment(fossa_payment)
+        fossa_payment_updated = await update_fossa_payment(
+            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
+        )
         assert fossa_payment_updated
         await pay_invoice(
             wallet_id=device.wallet,
@@ -149,13 +152,17 @@ async def lnurl_callback(
             extra={"tag": "fossa_withdraw"},
         )
         fossa_payment.payhash = fossa_payment.payload
-        fossa_payment_updated = await update_fossa_payment(fossa_payment)
+        fossa_payment_updated = await update_fossa_payment(
+            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
+        )
         assert fossa_payment_updated
         return {"status": "OK"}
     except HTTPException as e:
         return {"status": "ERROR", "reason": str(e)}
     except Exception as e:
         fossa_payment.payhash = "payment_hash"
-        fossa_payment_updated = await update_fossa_payment(fossa_payment)
+        fossa_payment_updated = await update_fossa_payment(
+            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
+        )
         assert fossa_payment_updated
         return {"status": "ERROR", "reason": str(e)}

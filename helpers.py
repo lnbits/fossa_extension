@@ -43,6 +43,8 @@ async def register_atm_payment(
         pin=int(decrypted[0]),
         payhash="payment_hash",
     )
+    if not fossa_payment:
+        raise RuntimeError("Failed making payment")
     price_msat = sats * 1000
     return fossa_payment, price_msat
 

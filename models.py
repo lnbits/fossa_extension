@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 from lnurl.types import LnurlPayMetadata
 from pydantic import BaseModel
@@ -26,6 +27,15 @@ class Fossa(BaseModel):
         return LnurlPayMetadata(json.dumps([["text/plain", self.title]]))
 
 
+class CreateFossaPayment(BaseModel):
+    id: str
+    deviceid: str
+    payhash: str
+    payload: str
+    pin: int
+    sats: int
+
+
 class FossaPayment(BaseModel):
     id: str
     deviceid: str
@@ -33,6 +43,7 @@ class FossaPayment(BaseModel):
     payload: str
     pin: int
     sats: int
+    timestamp: datetime
 
 
 class Lnurlencode(BaseModel):

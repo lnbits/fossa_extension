@@ -309,9 +309,8 @@
           label="Profit margin (% added to invoices/deducted from faucets)"
         ></q-input>
         <q-toggle
-          :label="boltzToggleState ? 'Onchain/liquid support enabled (boltz ext must be enabled)' : 'Onchain/liquid support disabled'"
-          v-model="boltzToggleState"
-          @input="handleBoltzToggleChange"
+          :label="formDialog.data.boltz ? 'Onchain/liquid support enabled (boltz ext must be enabled)' : 'Onchain/liquid support disabled'"
+          v-model="formDialog.data.boltz"
         ></q-toggle>
         <div class="row q-mt-lg">
           <q-btn

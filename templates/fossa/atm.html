@@ -19,22 +19,22 @@
           <q-tab
             name="lnurl"
             label="lnurl"
-            @click="updateTabAndClear(val)"
+            @update="val => tab = val.name"
           ></q-tab>
 
           <q-tab
             name="ln"
             label="lightning"
-            @click="updateTabAndClear(val)"
+            @update="val => tab = val.name"
           ></q-tab>
 
           <q-tab
-            :disable="boltz == 'False' || amount < 50000"
+            :disable="boltz == 'False' || amount < 50000000"
             name="onchain"
             label="onchain"
-            @click="updateTabAndClear(val)"
+            @update="val => tab = val.name"
           >
-            <q-tooltip v-if="boltz == 'True' && amount < 50000"
+            <q-tooltip v-if="boltz == 'True' && amount < 50000000"
               >Amount is too small to send over onchain, needs to be 50000+
               sats</q-tooltip
             >
@@ -42,13 +42,13 @@
           </q-tab>
 
           <q-tab
-            :disable="boltz == 'False' || amount < 10000"
+            :disable="boltz == 'False' || amount < 1000000"
             name="liquid"
             label="liquid"
-            @click="updateTabAndClear(val)"
+            @update="val => tab = val.name"
           >
-            <q-tooltip v-if="boltz == 'True' && amount < 10000"
-              >Amount is too small to send over liquid, needs to be 10000+
+            <q-tooltip v-if="boltz == 'True' && amount < 1000000"
+              >Amount is too small to send over liquid, needs to be 1000+
               sats</q-tooltip
             >
             <q-tooltip v-if="boltz == 'False'">Onchain not available</q-tooltip>
@@ -160,8 +160,8 @@
         </strike>
         <h1 v-else class="text-h4 q-mb-xs">You can withdraw:</h1>
         <h3 class="text-h5">
-          ${amount} SATS/BTC <br />
-          ${(amount / 100000000).toFixed(8)} BTC
+          ${amount / 1000} SATS/BTC <br />
+          ${(amount / 100000000000).toFixed(8)} BTC
         </h3>
       </q-card-section>
       <q-card-section class="q-pt-lg q-pb-xl">
@@ -210,7 +210,6 @@
             `/fossa/api/v1/ln/${this.device_id}/${this.p}/${this.ln}`,
             ''
           )
-          console.log(response.data)
           if (response.data) {
             this.ln = ''
             this.notifyUser('Payment should be with you shortly', 'positive')
@@ -220,11 +219,6 @@
         } catch (error) {
           this.notifyApiError(error)
         }
-      },
-      updateTabAndClear(val) {
-        this.address = ''
-        this.ln = ''
-        this.tab = val.name
       },
       sendOnchainAddress() {
         this.onchain_liquid = 'BTCtempBTC'
@@ -288,13 +282,6 @@
       },
       notifyApiError(error) {
         LNbits.utils.notifyApiError(error)
-      }
-    },
-    watch: {
-      tab(newVal, oldVal) {
-        if (newVal === 'ln') {
-          this.launchFunction()
-        }
       }
     }
   })

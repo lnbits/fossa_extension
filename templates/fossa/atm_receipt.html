@@ -28,21 +28,13 @@
 
         <div class="row" style="width: 70%; padding-top: 30px">
           <div class="col">
-            (scan for this page)
+            (scan with a wallet to claim/scan with normal qr scanner for claim
+            page)
             <div>
-              <qrcode
-                :value="theurl + '/lnurldevice/print/{{id}}'"
+              <lnbits-qrcode
+                :value="theurl + '/fossa/atm?lightning={{lnurl}}'"
                 :options="{width: 200, margin: 1}"
-              ></qrcode>
-            </div>
-          </div>
-          <div class="col">
-            (scan for claim page)
-            <div>
-              <qrcode
-                :value="theurl + '/lnurldevice/atm?lightning={{lnurl}}'"
-                :options="{width: 200, margin: 1}"
-              ></qrcode>
+              ></lnbits-qrcode>
             </div>
           </div>
         </div>
