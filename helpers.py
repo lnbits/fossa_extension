@@ -1,88 +1,64 @@
-import base64
-import hmac
-from io import BytesIO
-from typing import Optional
+from urllib.parse import parse_qs, urlparse
 
-from embit import compact
-from lnbits.helpers import urlsafe_short_hash
-from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
-
-from .crud import create_fossa_payment, get_recent_fossa_payment
-from .models import Fossa, FossaPayment
+from Cryptodome.Cipher import AES
+from lnurl import decode as lnurl_decode
+from pydantic import BaseModel
 
 
-async def register_atm_payment(
-    fossa: Fossa, payload: str
-) -> tuple[Optional[FossaPayment], Optional[int]]:
-    """
-    Register an ATM payment to avoid double pull.
-    """
-    # create a new lnurlpayment record
-    data = base64.urlsafe_b64decode(payload)
-    payload = payload.replace("=", "")
-    decrypted = xor_decrypt(fossa.key.encode(), data)
+class LnurlPayload(BaseModel):
+    fossa_id: str
+    iv: str
+    payload: str
 
-    fossa_payment = await get_recent_fossa_payment(payload)
-    # If the payment is already registered and been paid, return None
-    if fossa_payment and fossa_payment.payload == fossa_payment.payment_hash:
-        return None, fossa_payment.sats * 1000
-    # If the payment is already registered and not been paid, return lnurlpayment record
-    if fossa_payment and fossa_payment.payload != fossa_payment.payment_hash:
-        return fossa_payment, fossa_payment.sats * 1000
 
-    price_msat = (
-        await fiat_amount_as_satoshis(float(decrypted[1]) / 100, fossa.currency) * 1000
-        if fossa.currency != "sat"
-        else decrypted[1] * 1000
+class LnurlDecrypted(BaseModel):
+    pin: int
+    amount: float
+
+
+def parse_lnurl_payload(lnurl: str) -> LnurlPayload:
+
+    # Decode the lightning URL
+    try:
+        url = str(lnurl_decode(lnurl))
+    except Exception as e:
+        raise ValueError("Unable to decode lnurl.") from e
+
+    # Parse the URL to extract device ID and query parameters
+    parsed_url = urlparse(url)
+    query_string = parse_qs(parsed_url.query)
+
+    p = query_string.get("p", [None])[0]
+    if p is None:
+        raise ValueError("Missing 'p' parameter.")
+
+    # Extract and validate the 'iv' parameter
+    iv = query_string.get("iv", [None])[0]
+    if iv is None:
+        raise ValueError("Missing 'iv' parameter.")
+
+    fossa_id = parsed_url.path.split("/")[-1]
+
+    return LnurlPayload(
+        fossa_id=fossa_id,
+        iv=iv,
+        payload=p,
     )
-    price_msat = int(price_msat - ((price_msat / 100) * fossa.profit))
-    sats = int(price_msat / 1000)
-    fossa_payment = FossaPayment(
-        id=urlsafe_short_hash(),
-        fossa_id=fossa.id,
-        payload=payload,
-        sats=sats,
-        pin=int(decrypted[0]),
-        payment_hash="payment_hash",
-    )
-    await create_fossa_payment(fossa_payment)
-    price_msat = sats * 1000
-    return fossa_payment, price_msat
 
 
-def xor_decrypt(key, blob):
-    s = BytesIO(blob)
-    variant = s.read(1)[0]
-    if variant != 1:
-        raise RuntimeError("Not implemented")
-    # reading nonce
-    nonce_len = s.read(1)[0]
-    nonce = s.read(nonce_len)
-    if len(nonce) != nonce_len:
-        raise RuntimeError("Missing nonce bytes")
-    if nonce_len < 8:
-        raise RuntimeError("Nonce is too short")
-
-    # reading payload
-    payload_len = s.read(1)[0]
-    payload = s.read(payload_len)
-    if len(payload) > 32:
-        raise RuntimeError("Payload is too long for this encryption method")
-    if len(payload) != payload_len:
-        raise RuntimeError("Missing payload bytes")
-    hmacval = s.read()
-    expected = hmac.new(
-        key, b"Data:" + blob[: -len(hmacval)], digestmod="sha256"
-    ).digest()
-    if len(hmacval) < 8:
-        raise RuntimeError("HMAC is too short")
-    if hmacval != expected[: len(hmacval)]:
-        raise RuntimeError("HMAC is invalid")
-    secret = hmac.new(key, b"Round secret:" + nonce, digestmod="sha256").digest()
-    payload = bytearray(payload)
-    for i in range(len(payload)):
-        payload[i] = payload[i] ^ secret[i]
-    s = BytesIO(payload)
-    pin = compact.read_from(s)
-    amount_in_cent = compact.read_from(s)
-    return str(pin), amount_in_cent
+def decrypt_payload(key, iv, payload) -> LnurlDecrypted:
+    if len(payload) % 16 != 0:
+        raise ValueError("Invalid payload length.")
+    if len(iv) != 32:
+        raise ValueError("Invalid IV length.")
+    _iv = bytes.fromhex(iv)
+    _ct = bytes.fromhex(payload)
+    cipher = AES.new(key.encode(), AES.MODE_CBC, _iv)
+    pt = cipher.decrypt(_ct)
+    msg = pt.split(b"\x00")[0].decode()
+    pin, amount = msg.split(":")
+    if 1000 > int(pin) > 9999:
+        raise ValueError("Invalid pin")
+    if float(amount) < 0:
+        raise ValueError("Invalid amount")
+    return LnurlDecrypted(pin=int(pin), amount=float(amount))
