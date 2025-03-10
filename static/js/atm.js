@@ -9,12 +9,10 @@ window.app = Vue.createApp({
       boltz: boltz,
       amount_sat: amount_sat,
       used: used,
-      p: p,
       tab: 'lnurl',
       ln: '',
       address: '',
       onchain_liquid: 'BTC/BTC',
-      recentpay: recentpay,
       payment_options: ['lnurl', 'ln', 'onchain', 'liquid']
     }
   },
@@ -23,7 +21,7 @@ window.app = Vue.createApp({
       try {
         const response = await LNbits.api.request(
           'GET',
-          `/fossa/api/v1/ln/${this.fossa_id}/${this.p}/${this.ln}`,
+          `/fossa/api/v1/ln/${lnurl}/${this.ln}`,
           ''
         )
         if (response.data) {
@@ -48,7 +46,7 @@ window.app = Vue.createApp({
       try {
         const response = await LNbits.api.request(
           'GET',
-          `/fossa/api/v1/boltz/${this.fossa_id}/${this.p}/${this.onchain_liquid}/${this.address}`,
+          `/fossa/api/v1/boltz/${lnurl}/${this.onchain_liquid}/${this.address}`,
           ''
         )
         if (response.data) {

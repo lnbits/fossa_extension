@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from typing import Optional
 
 from lnurl.types import LnurlPayMetadata
 from pydantic import BaseModel, Field
@@ -30,7 +31,7 @@ class Fossa(BaseModel):
 class FossaPayment(BaseModel):
     id: str
     fossa_id: str
-    payment_hash: str
+    payment_hash: Optional[str] = None
     payload: str
     pin: int
     sats: int
