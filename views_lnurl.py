@@ -23,21 +23,21 @@ fossa_lnurl_router = APIRouter()
 
 
 @fossa_lnurl_router.get(
-    "/api/v1/lnurl/{device_id}",
+    "/api/v1/lnurl/{fossa_id}",
     status_code=HTTPStatus.OK,
     name="fossa.lnurl_params",
 )
 async def fossa_lnurl_params(
     request: Request,
-    device_id: str,
+    fossa_id: str,
     p: str = Query(None),
     atm: str = Query(None),
 ):
-    fossa = await get_fossa(device_id)
+    fossa = await get_fossa(fossa_id)
     if not fossa:
         return {
             "status": "ERROR",
-            "reason": f"fossa {device_id} not found on this server",
+            "reason": f"fossa {fossa_id} not found on this server",
         }
 
     if len(p) % 4 > 0:
@@ -109,8 +109,8 @@ async def lnurl_callback(
     if not pr:
         await delete_atm_payment_link(payment_id)
         return {"status": "ERROR", "reason": "No payment request."}
-    device = await get_fossa(fossa_payment.fossa_id)
-    if not device:
+    fossa = await get_fossa(fossa_payment.fossa_id)
+    if not fossa:
         await delete_atm_payment_link(payment_id)
         return {"status": "ERROR", "reason": "fossa not found."}
 
@@ -130,7 +130,7 @@ async def lnurl_callback(
     if not invoice.payment_hash:
         await delete_atm_payment_link(payment_id)
         return {"status": "ERROR", "reason": "Not valid payment request."}
-    wallet = await get_wallet(device.wallet)
+    wallet = await get_wallet(fossa.wallet)
     assert wallet
     if wallet.balance_msat < (int(fossa_payment.sats / 1000) + 100):
         await delete_atm_payment_link(payment_id)
@@ -144,7 +144,7 @@ async def lnurl_callback(
         fossa_payment.payment_hash = "pending"
         fossa_payment = await update_fossa_payment(fossa_payment)
         await pay_invoice(
-            wallet_id=device.wallet,
+            wallet_id=fossa.wallet,
             payment_request=pr,
             max_sat=int(fossa_payment.sats) + 100,
             extra={"tag": "fossa_withdraw"},
