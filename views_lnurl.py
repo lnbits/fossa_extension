@@ -132,14 +132,13 @@ async def lnurl_callback(
 
     if fossa_payment.payload == fossa_payment.payment_hash:
         raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST,
-            detail="Payment already claimed."
+            status_code=HTTPStatus.BAD_REQUEST, detail="Payment already claimed."
         )
 
     if fossa_payment.payment_hash == "pending":
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
-            detail="Pending. If you are unable to withdraw contact vendor"
+            detail="Pending. If you are unable to withdraw contact vendor",
         )
 
     invoice = bolt11.decode(pr)
@@ -148,7 +147,7 @@ async def lnurl_callback(
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST, detail="Not valid payment request."
         )
-    wallet = await get_wallet(device.wallet)
+    wallet = await get_wallet(fossa.wallet)
     assert wallet
     if wallet.balance_msat < (int(fossa_payment.sats / 1000) + 100):
         await delete_atm_payment_link(payment_id)
@@ -157,9 +156,7 @@ async def lnurl_callback(
         )
     if fossa_payment.payload != k1:
         await delete_atm_payment_link(payment_id)
-        raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST, detail="Bad K1"
-        )
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Bad K1")
     if fossa_payment.payment_hash != "payment_hash":
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST, detail="Payment already claimed."
