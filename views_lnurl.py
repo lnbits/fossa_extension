@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query, Request
 from lnbits.core.crud import get_wallet
 from lnbits.core.services import pay_invoice
 from lnbits.helpers import urlsafe_short_hash
+from lnbits.lnurl import LnurlErrorResponseHandler
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from starlette.exceptions import HTTPException
 
@@ -19,11 +20,12 @@ from .crud import (
 from .helpers import register_atm_payment, xor_decrypt
 from .models import FossaPayment
 
-fossa_lnurl_router = APIRouter()
+fossa_lnurl_router = APIRouter(prefix="/api/v1/lnurl")
+fossa_lnurl_router.route_class = LnurlErrorResponseHandler
 
 
 @fossa_lnurl_router.get(
-    "/api/v1/lnurl/{fossa_id}",
+    "/{fossa_id}",
     status_code=HTTPStatus.OK,
     name="fossa.lnurl_params",
 )
@@ -35,10 +37,10 @@ async def fossa_lnurl_params(
 ):
     fossa = await get_fossa(fossa_id)
     if not fossa:
-        return {
-            "status": "ERROR",
-            "reason": f"fossa {fossa_id} not found on this server",
-        }
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f"fossa {fossa_id} not found on this server",
+        )
 
     if len(p) % 4 > 0:
         p += "=" * (4 - (len(p) % 4))
@@ -47,7 +49,9 @@ async def fossa_lnurl_params(
     try:
         pin, amount_in_cent = xor_decrypt(fossa.key.encode(), data)
     except Exception as exc:
-        return {"status": "ERROR", "reason": str(exc)}
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Invalid payload."
+        ) from exc
 
     price_msat = (
         await fiat_amount_as_satoshis(float(amount_in_cent) / 100, fossa.currency)
@@ -55,12 +59,16 @@ async def fossa_lnurl_params(
         else amount_in_cent
     )
     if price_msat is None:
-        return {"status": "ERROR", "reason": "Price fetch error."}
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Price fetch error."
+        )
 
     if atm:
         fossa_payment, price_msat = await register_atm_payment(fossa, p)
         if not fossa_payment:
-            return {"status": "ERROR", "reason": "Payment already claimed."}
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST, detail="Payment already claimed."
+            )
         return {
             "tag": "withdrawRequest",
             "callback": str(
@@ -94,7 +102,7 @@ async def fossa_lnurl_params(
 
 
 @fossa_lnurl_router.get(
-    "/api/v1/lnurl/cb/{payment_id}",
+    "/cb/{payment_id}",
     status_code=HTTPStatus.OK,
     name="fossa.lnurl_callback",
 )
@@ -105,41 +113,54 @@ async def lnurl_callback(
 ):
     fossa_payment = await get_fossa_payment(payment_id)
     if not fossa_payment:
-        return {"status": "ERROR", "reason": "fossa_payment not found."}
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="fossa_payment not found.",
+        )
     if not pr:
-        await delete_atm_payment_link(payment_id)
-        return {"status": "ERROR", "reason": "No payment request."}
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="No payment request.",
+        )
     fossa = await get_fossa(fossa_payment.fossa_id)
     if not fossa:
         await delete_atm_payment_link(payment_id)
-        return {"status": "ERROR", "reason": "fossa not found."}
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="fossa not found.",
+        )
 
     if fossa_payment.payload == fossa_payment.payment_hash:
-        return {"status": "ERROR", "reason": "Payment already claimed."}
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Payment already claimed."
+        )
 
     if fossa_payment.payment_hash == "pending":
-        return {
-            "status": "ERROR",
-            "reason": "Pending. If you are unable to withdraw contact vendor",
-        }
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Pending. If you are unable to withdraw contact vendor",
+        )
 
     invoice = bolt11.decode(pr)
     if not invoice.payment_hash:
         await delete_atm_payment_link(payment_id)
-        return {"status": "ERROR", "reason": "Not valid payment request."}
-    if not invoice.payment_hash:
-        await delete_atm_payment_link(payment_id)
-        return {"status": "ERROR", "reason": "Not valid payment request."}
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Not valid payment request."
+        )
     wallet = await get_wallet(fossa.wallet)
     assert wallet
     if wallet.balance_msat < (int(fossa_payment.sats / 1000) + 100):
         await delete_atm_payment_link(payment_id)
-        return {"status": "ERROR", "reason": "Not enough funds."}
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Not enough funds."
+        )
     if fossa_payment.payload != k1:
         await delete_atm_payment_link(payment_id)
-        return {"status": "ERROR", "reason": "Bad K1"}
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Bad K1")
     if fossa_payment.payment_hash != "payment_hash":
-        return {"status": "ERROR", "reason": "Payment already claimed"}
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Payment already claimed."
+        )
     try:
         fossa_payment.payment_hash = "pending"
         fossa_payment = await update_fossa_payment(fossa_payment)
@@ -153,8 +174,8 @@ async def lnurl_callback(
         fossa_payment = await update_fossa_payment(fossa_payment)
         return {"status": "OK"}
     except HTTPException as e:
-        return {"status": "ERROR", "reason": str(e)}
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         fossa_payment.payment_hash = "payment_hash"
         fossa_payment = await update_fossa_payment(fossa_payment)
-        return {"status": "ERROR", "reason": str(e)}
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e)) from e
