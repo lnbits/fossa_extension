@@ -5,20 +5,17 @@ import bolt11
 from fastapi import APIRouter, Query, Request
 from lnbits.core.crud import get_wallet
 from lnbits.core.services import pay_invoice
-from lnbits.helpers import urlsafe_short_hash
 from lnbits.lnurl import LnurlErrorResponseHandler
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from starlette.exceptions import HTTPException
 
 from .crud import (
-    create_fossa_payment,
     delete_atm_payment_link,
     get_fossa,
     get_fossa_payment,
     update_fossa_payment,
 )
 from .helpers import register_atm_payment, xor_decrypt
-from .models import FossaPayment
 
 fossa_lnurl_router = APIRouter(prefix="/api/v1/lnurl")
 fossa_lnurl_router.route_class = LnurlErrorResponseHandler
@@ -33,7 +30,6 @@ async def fossa_lnurl_params(
     request: Request,
     fossa_id: str,
     p: str = Query(None),
-    atm: str = Query(None),
 ):
     fossa = await get_fossa(fossa_id)
     if not fossa:
@@ -47,7 +43,7 @@ async def fossa_lnurl_params(
 
     data = base64.urlsafe_b64decode(p)
     try:
-        pin, amount_in_cent = xor_decrypt(fossa.key.encode(), data)
+        _, amount_in_cent = xor_decrypt(fossa.key.encode(), data)
     except Exception as exc:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST, detail="Invalid payload."
@@ -63,41 +59,20 @@ async def fossa_lnurl_params(
             status_code=HTTPStatus.BAD_REQUEST, detail="Price fetch error."
         )
 
-    if atm:
-        fossa_payment, price_msat = await register_atm_payment(fossa, p)
-        if not fossa_payment:
-            raise HTTPException(
-                status_code=HTTPStatus.BAD_REQUEST, detail="Payment already claimed."
-            )
-        return {
-            "tag": "withdrawRequest",
-            "callback": str(
-                request.url_for("fossa.lnurl_callback", payment_id=fossa_payment.id)
-            ),
-            "k1": fossa_payment.payload,
-            "minWithdrawable": price_msat,
-            "maxWithdrawable": price_msat,
-            "defaultDescription": f"{fossa.title} ID: {fossa_payment.id}",
-        }
-    price_msat = int(price_msat * ((fossa.profit / 100) + 1))
-
-    fossa_payment = FossaPayment(
-        id=urlsafe_short_hash(),
-        fossa_id=fossa.id,
-        payload=p,
-        sats=price_msat,
-        pin=int(pin),
-        payment_hash="payment_hash",
-    )
-    fossa_payment = await create_fossa_payment(fossa_payment)
+    fossa_payment, price_msat = await register_atm_payment(fossa, p)
+    if not fossa_payment:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Payment already claimed."
+        )
     return {
-        "tag": "payRequest",
+        "tag": "withdrawRequest",
         "callback": str(
             request.url_for("fossa.lnurl_callback", payment_id=fossa_payment.id)
         ),
-        "minSendable": price_msat * 1000,
-        "maxSendable": price_msat * 1000,
-        "metadata": fossa.lnurlpay_metadata,
+        "k1": fossa_payment.payload,
+        "minWithdrawable": price_msat,
+        "maxWithdrawable": price_msat,
+        "defaultDescription": f"{fossa.title} ID: {fossa_payment.id}",
     }
 
 

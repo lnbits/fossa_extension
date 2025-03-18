@@ -8,7 +8,6 @@ window.app = Vue.createApp({
       location: window.location.hostname,
       filter: '',
       currency: 'USD',
-      deviceString: '',
       lnurlValue: '',
       fossa: [],
       atmLinks: [],
@@ -89,10 +88,6 @@ window.app = Vue.createApp({
         pagination: {
           rowsPerPage: 10
         }
-      },
-      settingsDialog: {
-        show: false,
-        data: {}
       },
       formDialog: {
         show: false,
