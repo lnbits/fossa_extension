@@ -4,7 +4,7 @@ import shortuuid
 from lnbits.db import Database
 from lnbits.helpers import urlsafe_short_hash
 
-from .models import CreateFossa, CreateFossaPayment, Fossa, FossaPayment
+from .models import CreateFossa, Fossa, FossaPayment
 
 db = Database("ext_fossa")
 
@@ -52,30 +52,12 @@ async def delete_fossa(fossa_id: str) -> None:
     await db.execute("DELETE FROM fossa.fossa WHERE id = :id", {"id": fossa_id})
 
 
-async def create_fossa_payment(
-    deviceid: str,
-    payload: str,
-    pin: int,
-    payhash: str,
-    sats: int = 0,
-) -> Optional[FossaPayment]:
-    fossa_payment_id = urlsafe_short_hash()
-    payment = CreateFossaPayment(
-        id=fossa_payment_id,
-        deviceid=deviceid,
-        payload=payload,
-        pin=pin,
-        payhash=payhash,
-        sats=sats,
-    )
-    await db.insert("fossa.fossa_payment", payment)
-    fossa_payment = await get_fossa_payment(fossa_payment_id)
+async def create_fossa_payment(fossa_payment: FossaPayment) -> FossaPayment:
+    await db.insert("fossa.fossa_payment", fossa_payment)
     return fossa_payment
 
 
-async def update_fossa_payment(
-    fossa_payment: CreateFossaPayment,
-) -> CreateFossaPayment:
+async def update_fossa_payment(fossa_payment: FossaPayment) -> FossaPayment:
     await db.update("fossa.fossa_payment", fossa_payment)
     return fossa_payment
 

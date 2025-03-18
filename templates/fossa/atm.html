@@ -187,7 +187,7 @@
     delimiters: ['${', '}'],
     data() {
       return {
-        device_id: '{{device_id}}',
+        fossa_id: '{{fossa_id}}',
         qr_value: '{{lnurl}}',
         lnurl: '{{lnurl}}',
         boltz: '{{boltz}}',
@@ -207,7 +207,7 @@
         try {
           const response = await LNbits.api.request(
             'GET',
-            `/fossa/api/v1/ln/${this.device_id}/${this.p}/${this.ln}`,
+            `/fossa/api/v1/ln/${this.fossa_id}/${this.p}/${this.ln}`,
             ''
           )
           if (response.data) {
@@ -232,7 +232,7 @@
         try {
           const response = await LNbits.api.request(
             'GET',
-            `/fossa/api/v1/boltz/${this.device_id}/${this.p}/${this.onchain_liquid}/${this.address}`,
+            `/fossa/api/v1/boltz/${this.fossa_id}/${this.p}/${this.onchain_liquid}/${this.address}`,
             ''
           )
           if (response.data) {

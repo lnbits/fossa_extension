@@ -25,8 +25,8 @@ async def m001_initial(db):
         f"""
         CREATE TABLE fossa.fossa_payment (
             id TEXT NOT NULL PRIMARY KEY,
-            deviceid TEXT NOT NULL,
-            payhash TEXT,
+            fossa_id TEXT NOT NULL,
+            payment_hash TEXT,
             payload TEXT NOT NULL,
             pin INT,
             sats {db.big_int},

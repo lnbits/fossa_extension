@@ -25,7 +25,7 @@ from .crud import (
     update_fossa_payment,
 )
 from .helpers import register_atm_payment
-from .models import CreateFossaPayment, FossaPayment, Lnurlencode
+from .models import FossaPayment, Lnurlencode
 
 fossa_api_atm_router = APIRouter()
 
@@ -94,7 +94,7 @@ async def get_fossa_payment_lightning(fossa_id: str, p: str, ln: str) -> str:
         )
 
     # If its an lnaddress or lnurlp get the request from callback
-    elif ln[:5] == "lnurl" or "@" in ln and "." in ln.split("@")[-1]:
+    elif ln[:5] == "lnurl" or ("@" in ln and "." in ln.split("@")[-1]):
         data = await api_lnurlscan(ln)
         logger.debug(data)
         if data.get("status") == "ERROR":
@@ -150,10 +150,8 @@ async def get_fossa_payment_lightning(fossa_id: str, p: str, ln: str) -> str:
     try:
         fossa_payment, price_msat = await register_atm_payment(fossa, p)
         assert fossa_payment
-        fossa_payment.payhash = fossa_payment.payload
-        await update_fossa_payment(
-            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
-        )
+        fossa_payment.payment_hash = fossa_payment.payload
+        await update_fossa_payment(fossa_payment)
         if ln[:4] == "lnbc":
             await pay_invoice(
                 wallet_id=fossa.wallet,
@@ -188,9 +186,9 @@ async def get_fossa_payment_boltz(
     assert fossa_payment
     if fossa_payment == "ERROR":
         return fossa_payment
-    if fossa_payment.payload == fossa_payment.payhash:
+    if fossa_payment.payload == fossa_payment.payment_hash:
         return {"status": "ERROR", "reason": "Payment already claimed."}
-    if fossa_payment.payhash == "pending":
+    if fossa_payment.payment_hash == "pending":
         return {
             "status": "ERROR",
             "reason": "Pending. If you are unable to withdraw contact vendor",
@@ -218,28 +216,19 @@ async def get_fossa_payment_boltz(
 
     try:
         fossa_payment.payload = payload
-        fossa_payment.payhash = "pending"
-        fossa_payment_updated = await update_fossa_payment(
-            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
-        )
-        assert fossa_payment_updated
+        fossa_payment.payment_hash = "pending"
+        fossa_payment = await update_fossa_payment(fossa_payment)
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 url=f"http://{settings.host}:{settings.port}/boltz/api/v1/swap/reverse",
                 headers={"X-API-KEY": wallet.adminkey},
                 json=data,
             )
-            fossa_payment.payhash = fossa_payment.payload
-            fossa_payment_updated = await update_fossa_payment(
-                CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
-            )
-            assert fossa_payment_updated
+            fossa_payment.payment_hash = fossa_payment.payload
+            fossa_payment = await update_fossa_payment(fossa_payment)
             resp = response.json()
             return resp
     except Exception as exc:
-        fossa_payment.payhash = "payment_hash"
-        fossa_payment_updated = await update_fossa_payment(
-            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
-        )
-        assert fossa_payment_updated
+        fossa_payment.payment_hash = "payment_hash"
+        await update_fossa_payment(fossa_payment)
         return {"status": "ERROR", "reason": str(exc)}
