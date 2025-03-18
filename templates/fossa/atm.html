@@ -151,9 +151,7 @@
   <div class="col-12 col-sm-6 col-md-5 col-lg-4 q-gutter-y-md">
     <q-card>
       <q-card-section>
-        <strike v-if="used" class="text-h4 q-mb-xs"
-          >You can withdraw:
-        </strike>
+        <strike v-if="used" class="text-h4 q-mb-xs">You can withdraw: </strike>
         <h1 v-else class="text-h4 q-mb-xs">You can withdraw:</h1>
         <h3 class="text-h5">
           ${amount_sat / 1000} SATS/BTC <br />
@@ -177,13 +175,13 @@
 
 {% endblock %} {% block scripts %}
 <script>
-const fossa_id = '{{ fossa_id }}'
-const lnurl = '{{ lnurl }}'
-const boltz = '{{ boltz }}' === 'True' ? true : false
-const amount_sat = parseInt('{{ amount_sat }}')
-const used = '{{ used }}' === 'True' ? true : false
-const p = '{{ p }}'
-const recentpay = '{{ recentpay }}' === 'True' ? true : false
+  const fossa_id = '{{ fossa_id }}'
+  const lnurl = '{{ lnurl }}'
+  const boltz = '{{ boltz }}' === 'True' ? true : false
+  const amount_sat = parseInt('{{ amount_sat }}')
+  const used = '{{ used }}' === 'True' ? true : false
+  const p = '{{ p }}'
+  const recentpay = '{{ recentpay }}' === 'True' ? true : false
 </script>
 <script src="{{ static_url_for('fossa/static', path='js/atm.js') }}"></script>
 {% endblock %}
