@@ -1,7 +1,7 @@
 {% extends "public.html" %} {% block page %}
 <div class="row q-col-gutter-md justify-center">
   <div class="col-12 col-sm-6 col-md-5 col-lg-4">
-    <q-card v-if="used " class="q-pa-lg">
+    <q-card v-if="used" class="q-pa-lg">
       <center>
         <q-icon name="check" color="grey" size="20em"></q-icon>
         <q-card-section class="text-h6">
@@ -154,8 +154,8 @@
         <strike v-if="used" class="text-h4 q-mb-xs">You can withdraw: </strike>
         <h1 v-else class="text-h4 q-mb-xs">You can withdraw:</h1>
         <h3 class="text-h5">
-          ${amount_sat / 1000} SATS/BTC <br />
-          ${(amount_sat / 100000000000).toFixed(8)} BTC
+          ${amount_sat} SATS/BTC <br />
+          ${(amount_sat / 100000000).toFixed(8)} BTC
         </h3>
       </q-card-section>
       <q-card-section class="q-pt-lg q-pb-xl">

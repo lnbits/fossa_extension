@@ -33,7 +33,7 @@ window.app = Vue.createApp({
         }
         window.location.reload()
       } catch (error) {
-        this.notifyApiError(error)
+        LNbits.utils.notifyApiError(error)
       }
     },
     sendOnchainAddress() {
@@ -56,7 +56,7 @@ window.app = Vue.createApp({
           this.notifyUser('Payment should be with you shortly', 'positive')
         }
       } catch (error) {
-        this.notifyApiError(error)
+        LNbits.utils.notifyApiError(error)
       }
     },
     connectWebsocket(payment_id) {
@@ -67,27 +67,6 @@ window.app = Vue.createApp({
         this.notifyUser('Payment sent!', 'positive')
       }
     },
-    closeParseDialog() {
-      setTimeout(() => {
-        clearInterval(this.parse.paymentChecker)
-      }, 10000)
-    },
-    focusInput(el) {
-      this.$nextTick(() => this.$refs[el].focus())
-    },
-    msatoshiFormat(value) {
-      return LNbits.utils.formatSat(value / 1000)
-    },
-    showParseDialog() {
-      this.parse.show = true
-      this.parse.invoice = null
-      this.parse.copy.show =
-        window.isSecureContext && navigator.clipboard?.readText !== undefined
-      this.parse.data.request = ''
-      this.parse.data.comment = ''
-      this.parse.data.paymentChecker = null
-      this.focusInput('textArea')
-    },
     notifyUser(message, type) {
       this.$q.notify({
         message,
@@ -95,9 +74,6 @@ window.app = Vue.createApp({
         spinner: type === 'positive',
         timeout: 5000
       })
-    },
-    notifyApiError(error) {
-      LNbits.utils.notifyApiError(error)
     }
   }
 })
