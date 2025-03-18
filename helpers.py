@@ -4,6 +4,7 @@ from io import BytesIO
 from typing import Optional
 
 from embit import compact
+from lnbits.helpers import urlsafe_short_hash
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 
 from .crud import create_fossa_payment, get_recent_fossa_payment
@@ -11,7 +12,7 @@ from .models import Fossa, FossaPayment
 
 
 async def register_atm_payment(
-    device: Fossa, payload: str
+    fossa: Fossa, payload: str
 ) -> tuple[Optional[FossaPayment], Optional[int]]:
     """
     Register an ATM payment to avoid double pull.
@@ -19,32 +20,32 @@ async def register_atm_payment(
     # create a new lnurlpayment record
     data = base64.urlsafe_b64decode(payload)
     payload = payload.replace("=", "")
-    decrypted = xor_decrypt(device.key.encode(), data)
+    decrypted = xor_decrypt(fossa.key.encode(), data)
 
     fossa_payment = await get_recent_fossa_payment(payload)
     # If the payment is already registered and been paid, return None
-    if fossa_payment and fossa_payment.payload == fossa_payment.payhash:
+    if fossa_payment and fossa_payment.payload == fossa_payment.payment_hash:
         return None, fossa_payment.sats * 1000
     # If the payment is already registered and not been paid, return lnurlpayment record
-    if fossa_payment and fossa_payment.payload != fossa_payment.payhash:
+    if fossa_payment and fossa_payment.payload != fossa_payment.payment_hash:
         return fossa_payment, fossa_payment.sats * 1000
 
     price_msat = (
-        await fiat_amount_as_satoshis(float(decrypted[1]) / 100, device.currency) * 1000
-        if device.currency != "sat"
+        await fiat_amount_as_satoshis(float(decrypted[1]) / 100, fossa.currency) * 1000
+        if fossa.currency != "sat"
         else decrypted[1] * 1000
     )
-    price_msat = int(price_msat - ((price_msat / 100) * device.profit))
+    price_msat = int(price_msat - ((price_msat / 100) * fossa.profit))
     sats = int(price_msat / 1000)
-    fossa_payment = await create_fossa_payment(
-        deviceid=device.id,
+    fossa_payment = FossaPayment(
+        id=urlsafe_short_hash(),
+        fossa_id=fossa.id,
         payload=payload,
         sats=sats,
         pin=int(decrypted[0]),
-        payhash="payment_hash",
+        payment_hash="payment_hash",
     )
-    if not fossa_payment:
-        raise RuntimeError("Failed making payment")
+    await create_fossa_payment(fossa_payment)
     price_msat = sats * 1000
     return fossa_payment, price_msat
 

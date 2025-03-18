@@ -4,7 +4,7 @@
   <div class="" id="vue">
     <page size="A4" id="pdfprint">
       <div class="wrapper" style="padding-top: 30px; text-align: center">
-        <h3>ATM receipt for: "{{devicename}}"</h3>
+        <h3>ATM receipt for: "{{name}}"</h3>
         <span>{{ amt }} sats</span>
         <table>
           <tr>
@@ -18,11 +18,11 @@
           </tr>
           <tr>
             <td><b>Device</b></td>
-            <td>{{devicename}} ({{deviceid}})</td>
+            <td>{{name}} ({{fossa_id}})</td>
           </tr>
           <tr>
             <td><b>Claimed</b></td>
-            <td>{{ "False" if payhash == "payment_hash" else "True" }}</td>
+            <td>{{ "False" if payment_hash == "payment_hash" else "True" }}</td>
           </tr>
         </table>
 

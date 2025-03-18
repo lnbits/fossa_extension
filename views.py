@@ -47,11 +47,11 @@ async def atmpage(request: Request, lightning: str):
 
     # Parse the URL to extract device ID and query parameters
     parsed_url = urlparse(url)
-    device_id = parsed_url.path.split("/")[-1]
-    device = await get_fossa(device_id)
-    if not device:
+    fossa_id = parsed_url.path.split("/")[-1]
+    fossa = await get_fossa(fossa_id)
+    if not fossa:
         raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Unable to find device."
+            status_code=HTTPStatus.NOT_FOUND, detail="Unable to find fossa."
         )
 
     # Extract and validate the 'p' parameter
@@ -67,22 +67,22 @@ async def atmpage(request: Request, lightning: str):
     # Decode and decrypt the 'p' parameter
     # try:
     #     # data = base64.urlsafe_b64decode(p)
-    #     # decrypted = xor_decrypt(device.key.encode(), data)
+    #     # decrypted = xor_decrypt(fossa.key.encode(), data)
     # except Exception as exc:
     #     raise HTTPException(
     #         status_code=HTTPStatus.BAD_REQUEST, detail=f"{exc!s}"
     #     ) from exc
 
     # Determine the price in msat
-    # if device.currency != "sat":
+    # if fossa.currency != "sat":
     #     price_msat = await fiat_amount_as_satoshis(
-    #        decrypted[1] / 100, device.currency)
+    #        decrypted[1] / 100, fossa.currency)
     # else:
     #     price_msat = decrypted[1]
 
     # Check wallet and user access
 
-    wallet = await get_wallet(device.wallet)
+    wallet = await get_wallet(fossa.wallet)
     if not wallet:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Wallet not found."
@@ -90,7 +90,7 @@ async def atmpage(request: Request, lightning: str):
 
     # check if boltz payouts is enabled but also check the boltz extension is enabled
     access = False
-    if device.boltz:
+    if fossa.boltz:
         installed_extensions = await get_installed_extensions(active=True)
         for extension in installed_extensions:
             if extension.id == "boltz" and extension.active:
@@ -98,7 +98,7 @@ async def atmpage(request: Request, lightning: str):
                 logger.debug(access)
 
     # Attempt to get recent payment information
-    fossa_payment, sats = await register_atm_payment(device, p)
+    fossa_payment, sats = await register_atm_payment(fossa, p)
     # Render the response template
     return fossa_renderer().TemplateResponse(
         "fossa/atm.html",
@@ -106,7 +106,7 @@ async def atmpage(request: Request, lightning: str):
             "request": request,
             "lnurl": lightning,
             "amount": sats,
-            "device_id": device.id,
+            "fossa_id": fossa.id,
             "boltz": True if access else False,
             "p": p,
             "recentpay": fossa_payment.id if fossa_payment else False,
@@ -122,14 +122,14 @@ async def print_receipt(request: Request, payment_id):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Payment link does not exist."
         )
-    device = await get_fossa(fossa_payment.deviceid)
-    if not device:
+    fossa = await get_fossa(fossa_payment.fossa_id)
+    if not fossa:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Unable to find device."
         )
 
     lnurl = lnurl_encode(
-        str(request.url_for("fossa.lnurl_params", device_id=fossa_payment.deviceid))
+        str(request.url_for("fossa.lnurl_params", device_id=fossa_payment.fossa_id))
         + "?atm=1&p="
         + fossa_payment.payload
     )
@@ -139,9 +139,9 @@ async def print_receipt(request: Request, payment_id):
         {
             "request": request,
             "id": fossa_payment.id,
-            "deviceid": fossa_payment.deviceid,
-            "devicename": device.title,
-            "payhash": fossa_payment.payhash,
+            "fossa_id": fossa_payment.fossa_id,
+            "name": fossa.title,
+            "payment_hash": fossa_payment.payment_hash,
             "payload": fossa_payment.payload,
             "sats": fossa_payment.sats,
             "lnurl": lnurl,

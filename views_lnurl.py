@@ -5,6 +5,7 @@ import bolt11
 from fastapi import APIRouter, Query, Request
 from lnbits.core.crud import get_wallet
 from lnbits.core.services import pay_invoice
+from lnbits.helpers import urlsafe_short_hash
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from starlette.exceptions import HTTPException
 
@@ -16,7 +17,7 @@ from .crud import (
     update_fossa_payment,
 )
 from .helpers import register_atm_payment, xor_decrypt
-from .models import CreateFossaPayment
+from .models import FossaPayment
 
 fossa_lnurl_router = APIRouter()
 
@@ -32,8 +33,8 @@ async def fossa_lnurl_params(
     p: str = Query(None),
     atm: str = Query(None),
 ):
-    device = await get_fossa(device_id)
-    if not device:
+    fossa = await get_fossa(device_id)
+    if not fossa:
         return {
             "status": "ERROR",
             "reason": f"fossa {device_id} not found on this server",
@@ -44,20 +45,20 @@ async def fossa_lnurl_params(
 
     data = base64.urlsafe_b64decode(p)
     try:
-        pin, amount_in_cent = xor_decrypt(device.key.encode(), data)
+        pin, amount_in_cent = xor_decrypt(fossa.key.encode(), data)
     except Exception as exc:
         return {"status": "ERROR", "reason": str(exc)}
 
     price_msat = (
-        await fiat_amount_as_satoshis(float(amount_in_cent) / 100, device.currency)
-        if device.currency != "sat"
+        await fiat_amount_as_satoshis(float(amount_in_cent) / 100, fossa.currency)
+        if fossa.currency != "sat"
         else amount_in_cent
     )
     if price_msat is None:
         return {"status": "ERROR", "reason": "Price fetch error."}
 
     if atm:
-        fossa_payment, price_msat = await register_atm_payment(device, p)
+        fossa_payment, price_msat = await register_atm_payment(fossa, p)
         if not fossa_payment:
             return {"status": "ERROR", "reason": "Payment already claimed."}
         return {
@@ -68,19 +69,19 @@ async def fossa_lnurl_params(
             "k1": fossa_payment.payload,
             "minWithdrawable": price_msat,
             "maxWithdrawable": price_msat,
-            "defaultDescription": f"{device.title} ID: {fossa_payment.id}",
+            "defaultDescription": f"{fossa.title} ID: {fossa_payment.id}",
         }
-    price_msat = int(price_msat * ((device.profit / 100) + 1))
+    price_msat = int(price_msat * ((fossa.profit / 100) + 1))
 
-    fossa_payment = await create_fossa_payment(
-        deviceid=device.id,
+    fossa_payment = FossaPayment(
+        id=urlsafe_short_hash(),
+        fossa_id=fossa.id,
         payload=p,
-        sats=price_msat * 1000,
+        sats=price_msat,
         pin=int(pin),
-        payhash="payment_hash",
+        payment_hash="payment_hash",
     )
-    if not fossa_payment:
-        return {"status": "ERROR", "reason": "Could not create payment."}
+    fossa_payment = await create_fossa_payment(fossa_payment)
     return {
         "tag": "payRequest",
         "callback": str(
@@ -88,7 +89,7 @@ async def fossa_lnurl_params(
         ),
         "minSendable": price_msat * 1000,
         "maxSendable": price_msat * 1000,
-        "metadata": device.lnurlpay_metadata,
+        "metadata": fossa.lnurlpay_metadata,
     }
 
 
@@ -108,15 +109,15 @@ async def lnurl_callback(
     if not pr:
         await delete_atm_payment_link(payment_id)
         return {"status": "ERROR", "reason": "No payment request."}
-    device = await get_fossa(fossa_payment.deviceid)
+    device = await get_fossa(fossa_payment.fossa_id)
     if not device:
         await delete_atm_payment_link(payment_id)
         return {"status": "ERROR", "reason": "fossa not found."}
 
-    if fossa_payment.payload == fossa_payment.payhash:
+    if fossa_payment.payload == fossa_payment.payment_hash:
         return {"status": "ERROR", "reason": "Payment already claimed."}
 
-    if fossa_payment.payhash == "pending":
+    if fossa_payment.payment_hash == "pending":
         return {
             "status": "ERROR",
             "reason": "Pending. If you are unable to withdraw contact vendor",
@@ -137,32 +138,23 @@ async def lnurl_callback(
     if fossa_payment.payload != k1:
         await delete_atm_payment_link(payment_id)
         return {"status": "ERROR", "reason": "Bad K1"}
-    if fossa_payment.payhash != "payment_hash":
+    if fossa_payment.payment_hash != "payment_hash":
         return {"status": "ERROR", "reason": "Payment already claimed"}
     try:
-        fossa_payment.payhash = "pending"
-        fossa_payment_updated = await update_fossa_payment(
-            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
-        )
-        assert fossa_payment_updated
+        fossa_payment.payment_hash = "pending"
+        fossa_payment = await update_fossa_payment(fossa_payment)
         await pay_invoice(
             wallet_id=device.wallet,
             payment_request=pr,
-            max_sat=int(fossa_payment_updated.sats) + 100,
+            max_sat=int(fossa_payment.sats) + 100,
             extra={"tag": "fossa_withdraw"},
         )
-        fossa_payment.payhash = fossa_payment.payload
-        fossa_payment_updated = await update_fossa_payment(
-            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
-        )
-        assert fossa_payment_updated
+        fossa_payment.payment_hash = fossa_payment.payload
+        fossa_payment = await update_fossa_payment(fossa_payment)
         return {"status": "OK"}
     except HTTPException as e:
         return {"status": "ERROR", "reason": str(e)}
     except Exception as e:
-        fossa_payment.payhash = "payment_hash"
-        fossa_payment_updated = await update_fossa_payment(
-            CreateFossaPayment(**fossa_payment.dict(exclude={"timestamp"}))
-        )
-        assert fossa_payment_updated
+        fossa_payment.payment_hash = "payment_hash"
+        fossa_payment = await update_fossa_payment(fossa_payment)
         return {"status": "ERROR", "reason": str(e)}

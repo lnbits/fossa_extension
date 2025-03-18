@@ -1,8 +1,8 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lnurl.types import LnurlPayMetadata
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateFossa(BaseModel):
@@ -27,23 +27,14 @@ class Fossa(BaseModel):
         return LnurlPayMetadata(json.dumps([["text/plain", self.title]]))
 
 
-class CreateFossaPayment(BaseModel):
-    id: str
-    deviceid: str
-    payhash: str
-    payload: str
-    pin: int
-    sats: int
-
-
 class FossaPayment(BaseModel):
     id: str
-    deviceid: str
-    payhash: str
+    fossa_id: str
+    payment_hash: str
     payload: str
     pin: int
     sats: int
-    timestamp: datetime
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Lnurlencode(BaseModel):
