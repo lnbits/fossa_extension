@@ -212,13 +212,12 @@ window.app = Vue.createApp({
       }
       this.formDialog.show = true
     },
-    openFossaSettings(fossaId) {
+    copyDeviceString(fossaId) {
       const fossa = _.findWhere(this.fossa, {
         id: fossaId
       })
-      this.deviceString = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/${fossa.id},${fossa.key},${fossa.currency}`
-      this.settingsDialog.data = _.clone(fossa)
-      this.settingsDialog.show = true
+      const deviceString = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/atm/${fossa.id},${fossa.key},${fossa.currency}`
+      this.copyText(deviceString, 'Device string copied to clipboard!')
     },
     updateFossa(wallet, data) {
       const updatedData = {}

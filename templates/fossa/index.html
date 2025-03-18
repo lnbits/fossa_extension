@@ -93,11 +93,11 @@
                   flat
                   dense
                   size="xs"
-                  @click="openFossaSettings(props.row.id)"
+                  @click="copyDeviceString(props.row.id)"
                   icon="perm_data_setting"
                   color="primary"
                 >
-                  <q-tooltip>Fossa Settings</q-tooltip>
+                  <q-tooltip>Device String</q-tooltip>
                 </q-btn>
               </q-td>
               <q-td
@@ -252,27 +252,6 @@
       </q-card-section>
     </q-card>
   </div>
-
-  <q-dialog
-    v-model="settingsDialog.show"
-    deviceition="top"
-    @hide="closeFormDialog"
-  >
-    <q-card class="q-pa-lg q-pt-xl lnbits__dialog-card">
-      <div class="text-h6">Device string</div>
-      <q-btn
-        dense
-        outline
-        unelevated
-        color="primary"
-        size="md"
-        @click="copyText(deviceString, 'Link copied to clipboard!')"
-      >
-        <span v-text="deviceString"></span>
-        <q-tooltip>Click to copy URL</q-tooltip>
-      </q-btn>
-    </q-card>
-  </q-dialog>
 
   <q-dialog v-model="formDialog.show" deviceition="top" @hide="closeFormDialog">
     <q-card class="q-pa-lg q-pt-xl lnbits__dialog-card">
