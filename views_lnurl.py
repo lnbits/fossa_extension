@@ -142,19 +142,19 @@ async def lnurl_callback(
         return {"status": "ERROR", "reason": "Payment already claimed"}
     try:
         fossa_payment.payment_hash = "pending"
-        fossa_payment_updated = await update_fossa_payment(fossa_payment)
+        fossa_payment = await update_fossa_payment(fossa_payment)
         await pay_invoice(
             wallet_id=device.wallet,
             payment_request=pr,
-            max_sat=int(fossa_payment_updated.sats) + 100,
+            max_sat=int(fossa_payment.sats) + 100,
             extra={"tag": "fossa_withdraw"},
         )
         fossa_payment.payment_hash = fossa_payment.payload
-        fossa_payment_updated = await update_fossa_payment(fossa_payment)
+        fossa_payment = await update_fossa_payment(fossa_payment)
         return {"status": "OK"}
     except HTTPException as e:
         return {"status": "ERROR", "reason": str(e)}
     except Exception as e:
         fossa_payment.payment_hash = "payment_hash"
-        fossa_payment_updated = await update_fossa_payment(fossa_payment)
+        fossa_payment = await update_fossa_payment(fossa_payment)
         return {"status": "ERROR", "reason": str(e)}
