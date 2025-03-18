@@ -53,10 +53,10 @@ window.app = Vue.createApp({
             field: 'id'
           },
           {
-            name: 'deviceid',
+            name: 'fossa_id',
             align: 'left',
-            label: 'Device ID',
-            field: 'deviceid'
+            label: 'FOSSA ID',
+            field: 'fossa_id'
           },
           {
             name: 'sats',
@@ -260,8 +260,8 @@ window.app = Vue.createApp({
     exportAtmCSV() {
       LNbits.utils.exportCSV(this.atmTable.columns, this.atmLinks)
     },
-    openAtmLink(deviceid, p) {
-      const url = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/${deviceid}?atm=1&p=${p}`
+    openAtmLink(fossa_id, p) {
+      const url = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/${fossa_id}?atm=1&p=${p}`
       LNbits.api
         .request(
           'POST',

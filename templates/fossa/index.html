@@ -170,7 +170,7 @@
                   flat
                   dense
                   size="xs"
-                  @click="openAtmLink(props.row.deviceid, props.row.payload)"
+                  @click="openAtmLink(props.row.fossa_id, props.row.payload)"
                   icon="link"
                   color="grey"
                 >
@@ -297,7 +297,7 @@
           dense
           v-model.trim="formDialog.data.currency"
           type="text"
-          label="Fiat currency for device"
+          label="Fiat currency for fossa"
           :options="currency"
         ></q-select>
         <q-input

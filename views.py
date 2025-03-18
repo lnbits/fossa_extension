@@ -45,7 +45,7 @@ async def atmpage(request: Request, lightning: str):
             status_code=HTTPStatus.NOT_FOUND, detail="Unable to decode lnurl."
         )
 
-    # Parse the URL to extract device ID and query parameters
+    # Parse the URL to extract fossa ID and query parameters
     parsed_url = urlparse(url)
     fossa_id = parsed_url.path.split("/")[-1]
     fossa = await get_fossa(fossa_id)
@@ -125,11 +125,11 @@ async def print_receipt(request: Request, payment_id):
     fossa = await get_fossa(fossa_payment.fossa_id)
     if not fossa:
         raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Unable to find device."
+            status_code=HTTPStatus.NOT_FOUND, detail="Unable to find fossa."
         )
 
     lnurl = lnurl_encode(
-        str(request.url_for("fossa.lnurl_params", device_id=fossa_payment.fossa_id))
+        str(request.url_for("fossa.lnurl_params", fossa_id=fossa_payment.fossa_id))
         + "?atm=1&p="
         + fossa_payment.payload
     )

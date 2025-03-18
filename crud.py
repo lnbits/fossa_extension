@@ -12,7 +12,7 @@ db = Database("ext_fossa")
 async def create_fossa(data: CreateFossa) -> Fossa:
     fossa_id = shortuuid.uuid()[:5]
     fossa_key = urlsafe_short_hash()
-    device = Fossa(
+    fossa = Fossa(
         id=fossa_id,
         key=fossa_key,
         title=data.title,
@@ -21,8 +21,8 @@ async def create_fossa(data: CreateFossa) -> Fossa:
         currency=data.currency,
         boltz=data.boltz,
     )
-    await db.insert("fossa.fossa", device)
-    return device
+    await db.insert("fossa.fossa", fossa)
+    return fossa
 
 
 async def update_fossa(fossa: Fossa) -> Fossa:
@@ -80,7 +80,7 @@ async def get_fossa_payments(
     q = ",".join([f"'{w}'" for w in fossa_ids])
     return await db.fetchall(
         f"""
-        SELECT * FROM fossa.fossa_payment WHERE deviceid IN ({q})
+        SELECT * FROM fossa.fossa_payment WHERE fossa_id IN ({q})
         ORDER BY id
         """,
         model=FossaPayment,
