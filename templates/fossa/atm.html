@@ -1,11 +1,7 @@
-<!--/////////////////////////////////////////////////-->
-<!--////////////////USER FACING PAGE/////////////////-->
-<!--/////////////////////////////////////////////////-->
-
 {% extends "public.html" %} {% block page %}
 <div class="row q-col-gutter-md justify-center">
   <div class="col-12 col-sm-6 col-md-5 col-lg-4">
-    <q-card v-if="used == 'True'" class="q-pa-lg">
+    <q-card v-if="used " class="q-pa-lg">
       <center>
         <q-icon name="check" color="grey" size="20em"></q-icon>
         <q-card-section class="text-h6">
@@ -29,29 +25,29 @@
           ></q-tab>
 
           <q-tab
-            :disable="boltz == 'False' || amount < 50000000"
+            :disable="!boltz || amount_sat < 50000000"
             name="onchain"
             label="onchain"
             @update="val => tab = val.name"
           >
-            <q-tooltip v-if="boltz == 'True' && amount < 50000000"
+            <q-tooltip v-if="boltz && amount_sat < 50000000"
               >Amount is too small to send over onchain, needs to be 50000+
               sats</q-tooltip
             >
-            <q-tooltip v-if="boltz == 'False'">Onchain not available</q-tooltip>
+            <q-tooltip v-if="!boltz">Onchain not available</q-tooltip>
           </q-tab>
 
           <q-tab
-            :disable="boltz == 'False' || amount < 1000000"
+            :disable="!boltz || amount_sat < 1000000"
             name="liquid"
             label="liquid"
             @update="val => tab = val.name"
           >
-            <q-tooltip v-if="boltz == 'True' && amount < 1000000"
+            <q-tooltip v-if="boltz && amount_sat < 1000000"
               >Amount is too small to send over liquid, needs to be 1000+
               sats</q-tooltip
             >
-            <q-tooltip v-if="boltz == 'False'">Onchain not available</q-tooltip>
+            <q-tooltip v-if="!boltz">Onchain not available</q-tooltip>
           </q-tab>
         </q-tabs>
         <q-separator></q-separator>
@@ -60,9 +56,9 @@
           <q-tab-panel name="lnurl">
             <div class="text-h8">LNURL withdraw</div>
             <div class="text-center">
-              <a class="text-secondary" :href="'lightning:' + qr_value">
+              <a class="text-secondary" :href="'lightning:' + lnurl">
                 <lnbits-qrcode
-                  :value="qr_value"
+                  :value="lnurl"
                   class="rounded-borders"
                 ></lnbits-qrcode>
               </a>
@@ -72,7 +68,7 @@
               <q-btn
                 outline
                 color="grey"
-                @click="copyText(qr_value, 'LNURL copied to clipboard!')"
+                @click="copyText(lnurl, 'LNURL copied to clipboard!')"
                 >Copy LNURL
               </q-btn>
             </div>
@@ -155,18 +151,16 @@
   <div class="col-12 col-sm-6 col-md-5 col-lg-4 q-gutter-y-md">
     <q-card>
       <q-card-section>
-        <strike v-if="used == 'True'" class="text-h4 q-mb-xs"
-          >You can withdraw:
-        </strike>
+        <strike v-if="used" class="text-h4 q-mb-xs">You can withdraw: </strike>
         <h1 v-else class="text-h4 q-mb-xs">You can withdraw:</h1>
         <h3 class="text-h5">
-          ${amount / 1000} SATS/BTC <br />
-          ${(amount / 100000000000).toFixed(8)} BTC
+          ${amount_sat / 1000} SATS/BTC <br />
+          ${(amount_sat / 100000000000).toFixed(8)} BTC
         </h3>
       </q-card-section>
       <q-card-section class="q-pt-lg q-pb-xl">
         <q-btn
-          v-if="recentpay && recentpay != 'False'"
+          v-if="recentpay"
           label="View receipt"
           color="primary"
           unelevated
@@ -181,109 +175,13 @@
 
 {% endblock %} {% block scripts %}
 <script>
-  window.app = Vue.createApp({
-    el: '#vue',
-    mixins: [windowMixin],
-    delimiters: ['${', '}'],
-    data() {
-      return {
-        fossa_id: '{{fossa_id}}',
-        qr_value: '{{lnurl}}',
-        lnurl: '{{lnurl}}',
-        boltz: '{{boltz}}',
-        amount: '{{amount}}',
-        used: '{{used}}',
-        p: '{{p}}',
-        tab: 'lnurl',
-        ln: '',
-        address: '',
-        onchain_liquid: 'BTC/BTC',
-        recentpay: '{{recentpay}}',
-        payment_options: ['lnurl', 'ln', 'onchain', 'liquid']
-      }
-    },
-    methods: {
-      async sendLNaddress() {
-        try {
-          const response = await LNbits.api.request(
-            'GET',
-            `/fossa/api/v1/ln/${this.fossa_id}/${this.p}/${this.ln}`,
-            ''
-          )
-          if (response.data) {
-            this.ln = ''
-            this.notifyUser('Payment should be with you shortly', 'positive')
-            this.connectWebsocket(payment_id)
-          }
-          window.location.reload()
-        } catch (error) {
-          this.notifyApiError(error)
-        }
-      },
-      sendOnchainAddress() {
-        this.onchain_liquid = 'BTCtempBTC'
-        this.sendAddress()
-      },
-      sendLiquidAddress() {
-        this.onchain_liquid = 'L-BTCtempBTC'
-        this.sendAddress()
-      },
-      async sendAddress() {
-        try {
-          const response = await LNbits.api.request(
-            'GET',
-            `/fossa/api/v1/boltz/${this.fossa_id}/${this.p}/${this.onchain_liquid}/${this.address}`,
-            ''
-          )
-          if (response.data) {
-            this.ln = ''
-            this.notifyUser('Payment should be with you shortly', 'positive')
-          }
-        } catch (error) {
-          this.notifyApiError(error)
-        }
-      },
-      connectWebsocket(payment_id) {
-        const protocol = location.protocol === 'https:' ? 'wss://' : 'ws://'
-        const localUrl = `${protocol}${document.domain}:${location.port}/api/v1/ws/${review_id}` // Ensure review_id is defined or passed correctly
-        this.connection = new WebSocket(localUrl)
-        this.connection.onmessage = () => {
-          this.notifyUser('Payment sent!', 'positive')
-        }
-      },
-      closeParseDialog() {
-        setTimeout(() => {
-          clearInterval(this.parse.paymentChecker)
-        }, 10000)
-      },
-      focusInput(el) {
-        this.$nextTick(() => this.$refs[el].focus())
-      },
-      msatoshiFormat(value) {
-        return LNbits.utils.formatSat(value / 1000)
-      },
-      showParseDialog() {
-        this.parse.show = true
-        this.parse.invoice = null
-        this.parse.copy.show =
-          window.isSecureContext && navigator.clipboard?.readText !== undefined
-        this.parse.data.request = ''
-        this.parse.data.comment = ''
-        this.parse.data.paymentChecker = null
-        this.focusInput('textArea')
-      },
-      notifyUser(message, type) {
-        this.$q.notify({
-          message,
-          type,
-          spinner: type === 'positive',
-          timeout: 5000
-        })
-      },
-      notifyApiError(error) {
-        LNbits.utils.notifyApiError(error)
-      }
-    }
-  })
+  const fossa_id = '{{ fossa_id }}'
+  const lnurl = '{{ lnurl }}'
+  const boltz = '{{ boltz }}' === 'True' ? true : false
+  const amount_sat = parseInt('{{ amount_sat }}')
+  const used = '{{ used }}' === 'True' ? true : false
+  const p = '{{ p }}'
+  const recentpay = '{{ recentpay }}' === 'True' ? true : false
 </script>
+<script src="{{ static_url_for('fossa/static', path='js/atm.js') }}"></script>
 {% endblock %}
