@@ -47,7 +47,7 @@ async def atmpage(request: Request, lightning: str):
 
     # decrypt the payload
     decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
-    price_sat = await fossa.amount_to_sats(decrypted.amount)
+    amount_sat = await fossa.amount_to_sats(decrypted.amount)
 
     # check if boltz payouts is enabled but also check the boltz extension is enabled
     if fossa.boltz:
@@ -64,7 +64,7 @@ async def atmpage(request: Request, lightning: str):
         {
             "request": request,
             "lnurl": lightning,
-            "amount_sat": price_sat,
+            "amount_sat": amount_sat,
             "fossa_id": fossa.id,
             "boltz": fossa.boltz,
             "used": payment and payment.payment_hash,

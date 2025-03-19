@@ -29,14 +29,14 @@ class Fossa(BaseModel):
         return LnurlPayMetadata(json.dumps([["text/plain", self.title]]))
 
     async def amount_to_sats(self, amount: float) -> int:
-        price_sat = (
+        sats = (
             int(amount)
             if self.currency == "sat"
             else await fiat_amount_as_satoshis(float(amount) / 100, self.currency)
         )
         if self.profit <= 0:
-            return price_sat
-        return int(price_sat - ((price_sat / 100) * self.profit))
+            return sats
+        return int(sats - ((sats / 100) * self.profit))
 
 
 class FossaPayment(BaseModel):
