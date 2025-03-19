@@ -1,3 +1,4 @@
+from base64 import b64decode
 from urllib.parse import parse_qs, urlparse
 
 from Cryptodome.Cipher import AES
@@ -47,12 +48,12 @@ def parse_lnurl_payload(lnurl: str) -> LnurlPayload:
 
 
 def decrypt_payload(key, iv, payload) -> LnurlDecrypted:
-    if len(payload) % 16 != 0:
+    _iv = b64decode(iv)
+    _ct = b64decode(payload)
+    if len(_ct) % 16 != 0:
         raise ValueError("Invalid payload length.")
-    if len(iv) != 32:
+    if len(_iv) != 32:
         raise ValueError("Invalid IV length.")
-    _iv = bytes.fromhex(iv)
-    _ct = bytes.fromhex(payload)
     cipher = AES.new(key.encode(), AES.MODE_CBC, _iv)
     pt = cipher.decrypt(_ct)
     msg = pt.split(b"\x00")[0].decode()
