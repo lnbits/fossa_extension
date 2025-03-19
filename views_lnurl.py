@@ -43,11 +43,11 @@ async def _validate_payload(payload: str, iv: str, key: str) -> LnurlDecrypted:
 
 
 @fossa_lnurl_router.get(
-    "/atm/{fossa_id}",
+    "/{fossa_id}",
     status_code=HTTPStatus.OK,
-    name="fossa.lnurl_atm_params",
+    name="fossa.lnurl_params",
 )
-async def fossa_lnurl_atm_params(
+async def fossa_lnurl_params(
     request: Request,
     fossa_id: str,
     payload: str = Query(..., alias="p"),
@@ -64,7 +64,7 @@ async def fossa_lnurl_atm_params(
             float(decrypted.amount) / 100, fossa.currency
         )
     price_sat = int(price_sat - ((price_sat / 100) * fossa.profit))
-    url = request.url_for("fossa.lnurl_atm_params", fossa_id=fossa.id)
+    url = request.url_for("fossa.lnurl_params", fossa_id=fossa.id)
     payload = str(lnurl_encode(str(url) + f"?p={payload}&iv={iv}"))
     fossa_payment = FossaPayment(
         id=iv,
@@ -76,7 +76,7 @@ async def fossa_lnurl_atm_params(
     fossa_payment = await create_fossa_payment(fossa_payment)
     return {
         "tag": "withdrawRequest",
-        "callback": str(request.url_for("fossa.lnurl_atm_callback", fossa_id=fossa.id)),
+        "callback": str(request.url_for("fossa.lnurl_callback", fossa_id=fossa.id)),
         "k1": fossa_payment.id,
         "minWithdrawable": fossa_payment.sats * 1000,
         "maxWithdrawable": fossa_payment.sats * 1000,
@@ -85,11 +85,11 @@ async def fossa_lnurl_atm_params(
 
 
 @fossa_lnurl_router.get(
-    "/atm/cb/{fossa_id}",
+    "/cb/{fossa_id}",
     status_code=HTTPStatus.OK,
-    name="fossa.lnurl_atm_callback",
+    name="fossa.lnurl_callback",
 )
-async def lnurl_atm_callback(
+async def lnurl_callback(
     fossa_id: str,
     pr: str = Query(None),
     k1: str = Query(None),
