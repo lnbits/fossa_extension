@@ -87,36 +87,5 @@ async def get_fossa_payments(
     )
 
 
-async def get_fossa_payment_by_payhash(
-    payhash: str,
-) -> Optional[FossaPayment]:
-    return await db.fetchone(
-        "SELECT * FROM fossa.fossa_payment WHERE payhash = :payhash",
-        {"payhash": payhash},
-        FossaPayment,
-    )
-
-
-async def get_fossa_payment_by_payload(
-    payload: str,
-) -> Optional[FossaPayment]:
-    return await db.fetchone(
-        "SELECT * FROM fossa.fossa_payment WHERE payload = :payload",
-        {"payload": payload},
-        FossaPayment,
-    )
-
-
-async def get_recent_fossa_payment(payload: str) -> Optional[FossaPayment]:
-    return await db.fetchone(
-        """
-        SELECT * FROM fossa.fossa_payment
-        WHERE payload = :payload ORDER BY timestamp DESC LIMIT 1
-        """,
-        {"payload": payload},
-        FossaPayment,
-    )
-
-
 async def delete_atm_payment_link(atm_id: str) -> None:
     await db.execute("DELETE FROM fossa.fossa_payment WHERE id = :id", {"id": atm_id})
