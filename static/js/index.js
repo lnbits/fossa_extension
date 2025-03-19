@@ -254,19 +254,8 @@ window.app = Vue.createApp({
     exportAtmCSV() {
       LNbits.utils.exportCSV(this.atmTable.columns, this.atmLinks)
     },
-    openAtmLink(fossa_id, p) {
-      const url = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/${fossa_id}?atm=1&p=${p}`
-      LNbits.api
-        .request(
-          'POST',
-          '/fossa/api/v1/lnurlencode',
-          this.g.user.wallets[0].adminkey,
-          {url: url}
-        )
-        .then(response => {
-          window.open('/fossa/atm?lightning=' + response.data)
-        })
-        .catch(LNbits.utils.notifyApiError)
+    openAtmLink(payload) {
+      window.open('/fossa/atm?lightning=' + payload)
     }
   },
   created() {
