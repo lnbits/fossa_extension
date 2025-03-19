@@ -45,16 +45,16 @@ async def atmpage(request: Request, lightning: str):
             status_code=HTTPStatus.NOT_FOUND, detail="Wallet not found."
         )
 
-    # decrypt the payload
-    decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
-    amount_sat = await fossa.amount_to_sats(decrypted.amount)
-
     # check if boltz payouts is enabled but also check the boltz extension is enabled
     if fossa.boltz:
         installed_extensions = await get_installed_extensions(active=True)
         for extension in installed_extensions:
             if extension.id == "boltz" and extension.active:
                 fossa.boltz = False
+
+    # decrypt the payload to get the amount
+    decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
+    amount_sat = await fossa.amount_to_sats(decrypted.amount)
 
     # get to determine if the payload has been used
     payment = await get_fossa_payment(lnurl_payload.iv)
@@ -93,7 +93,6 @@ async def print_receipt(request: Request, payment_id):
             "fossa_id": fossa_payment.fossa_id,
             "title": fossa.title,
             "payment_hash": fossa_payment.payment_hash,
-            "payload": fossa_payment.payload,
             "sats": fossa_payment.sats,
             "lnurl": fossa_payment.payload,
         },
