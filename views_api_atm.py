@@ -24,6 +24,7 @@ from .crud import (
     get_fossa_payment,
     get_fossa_payments,
     get_fossas,
+    update_fossa_payment,
 )
 from .helpers import decrypt_payload, parse_lnurl_payload
 from .models import FossaPayment
@@ -134,20 +135,25 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
     ln = await _validate_payment_request(pr, amount_msat)
 
     payment_id = lnurl_payload.iv
-    payment = await pay_invoice(
-        wallet_id=fossa.wallet,
-        payment_request=ln,
-        extra={"tag": "fossa", "id": payment_id},
-    )
     fossa_payment = FossaPayment(
         id=payment_id,
         fossa_id=fossa.id,
         sats=int(amount_msat / 1000),
         pin=decrypted.pin,
         payload=lnurl,
-        payment_hash=payment.payment_hash,
+        payment_hash="pending",
     )
     await create_fossa_payment(fossa_payment)
+
+    payment = await pay_invoice(
+        wallet_id=fossa.wallet,
+        payment_request=ln,
+        extra={"tag": "fossa", "id": payment_id},
+    )
+
+    fossa_payment.payment_hash = payment.payment_hash
+    await update_fossa_payment(fossa_payment)
+
     return SimpleStatus(success=True, message="Payment successful")
 
 
