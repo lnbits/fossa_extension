@@ -6,15 +6,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from lnbits.core.crud import get_user, get_wallet
 from lnbits.core.models import WalletTypeInfo
 from lnbits.core.services import pay_invoice
-from lnbits.core.views.api import api_lnurlscan
 from lnbits.decorators import (
     check_user_extension_access,
     require_admin_key,
     require_invoice_key,
 )
+from lnbits.helpers import is_valid_email_address
 from lnbits.settings import settings
-from lnurl import encode as lnurl_encode
-from loguru import logger
+from lnurl import LnurlPayActionResponse, LnurlPayResponse
+from lnurl import execute_pay_request as lnurl_execute_pay_request
+from lnurl import handle as lnurl_handle
 
 from .crud import (
     delete_atm_payment_link,
@@ -25,21 +26,9 @@ from .crud import (
     update_fossa_payment,
 )
 from .helpers import register_atm_payment
-from .models import FossaPayment, Lnurlencode
+from .models import FossaPayment
 
 fossa_api_atm_router = APIRouter()
-
-
-@fossa_api_atm_router.post(
-    "/api/v1/lnurlencode", dependencies=[Depends(require_invoice_key)]
-)
-async def api_lnurlencode(data: Lnurlencode) -> str:
-    lnurl = lnurl_encode(data.url)
-    if not lnurl:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Lnurl could not be encoded."
-        )
-    return str(lnurl)
 
 
 @fossa_api_atm_router.get("/api/v1/atm")
@@ -68,12 +57,53 @@ async def api_atm_payment_delete(atm_id: str):
     await delete_atm_payment_link(atm_id)
 
 
+async def _validate_payment_request(pr: str, amount_msat: int) -> str:
+    pr = pr.lower().strip()
+    if pr.startswith("lnbc"):
+        ln = pr
+    elif pr.startswith("lnurl1") or is_valid_email_address(pr):
+        res = await lnurl_handle(pr)
+        if not isinstance(res, LnurlPayResponse):
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN, detail="Not valid LNURL Pay response"
+            )
+        res2 = await lnurl_execute_pay_request(
+            res, msat=str(amount_msat), user_agent=settings.user_agent
+        )
+        if not isinstance(res2, LnurlPayActionResponse):
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="Not valid LNURL Pay action response",
+            )
+        ln = res2.pr
+    else:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN, detail="Not valid payment request"
+        )
+    # validate invoice amount
+    invoice = bolt11.decode(ln)
+    if not invoice.payment_hash:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN, detail="Not valid payment request"
+        )
+    if not invoice.payment_hash:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN, detail="Not valid payment request"
+        )
+    if not invoice.amount_msat or int(invoice.amount_msat) != amount_msat:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="Request is not the same as withdraw amount",
+        )
+
+    return ln
+
+
 @fossa_api_atm_router.get("/api/v1/ln/{fossa_id}/{p}/{ln}")
 async def get_fossa_payment_lightning(fossa_id: str, p: str, ln: str) -> str:
     """
     Handle Lightning payments for atms via invoice, lnaddress, lnurlp.
     """
-    ln = ln.strip().lower()
 
     fossa = await get_fossa(fossa_id)
     if not fossa:
@@ -87,82 +117,25 @@ async def get_fossa_payment_lightning(fossa_id: str, p: str, ln: str) -> str:
             status_code=HTTPStatus.NOT_FOUND,
             detail="Wallet does not exist connected to atm, payment could not be made",
         )
+
     fossa_payment, price_msat = await register_atm_payment(fossa, p)
-    if not fossa_payment:
+    if not fossa_payment or not price_msat:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Payment already claimed."
         )
 
-    # If its an lnaddress or lnurlp get the request from callback
-    elif ln[:5] == "lnurl" or ("@" in ln and "." in ln.split("@")[-1]):
-        data = await api_lnurlscan(ln)
-        logger.debug(data)
-        if data.get("status") == "ERROR":
-            raise HTTPException(
-                status_code=HTTPStatus.BAD_REQUEST, detail=data.get("reason")
-            )
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                url=f"{data['callback']}?amount={fossa_payment.sats * 1000}"
-            )
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=HTTPStatus.BAD_REQUEST,
-                    detail="Could not get callback from lnurl",
-                )
-            ln = response.json()["pr"]
-
-    # If just an invoice
-    elif ln[:4] == "lnbc":
-        ln = ln
-
-    # If ln is gibberish, return an error
-    else:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail="""
-            Wrong format for payment, could not be made.
-            Use LNaddress or LNURLp
-            """,
-        )
-
-    # If its an invoice check its a legit invoice
-    if ln[:4] == "lnbc":
-        invoice = bolt11.decode(ln)
-        if not invoice.payment_hash:
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN, detail="Not valid payment request"
-            )
-        if not invoice.payment_hash:
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN, detail="Not valid payment request"
-            )
-        if (
-            not invoice.amount_msat
-            or int(invoice.amount_msat / 1000) != fossa_payment.sats
-        ):
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN,
-                detail="Request is not the same as withdraw amount",
-            )
+    ln = await _validate_payment_request(ln, price_msat)
 
     # Finally log the payment and make the payment
-    try:
-        fossa_payment, price_msat = await register_atm_payment(fossa, p)
-        assert fossa_payment
-        fossa_payment.payment_hash = fossa_payment.payload
-        await update_fossa_payment(fossa_payment)
-        if ln[:4] == "lnbc":
-            await pay_invoice(
-                wallet_id=fossa.wallet,
-                payment_request=ln,
-                max_sat=price_msat,
-                extra={"tag": "fossa", "id": fossa_payment.id},
-            )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST, detail=f"{exc!s}"
-        ) from exc
+    fossa_payment.payment_hash = fossa_payment.payload
+    await update_fossa_payment(fossa_payment)
+
+    await pay_invoice(
+        wallet_id=fossa.wallet,
+        payment_request=ln,
+        max_sat=price_msat,
+        extra={"tag": "fossa", "id": fossa_payment.id},
+    )
 
     return fossa_payment.id
 
