@@ -173,7 +173,7 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             detail="Boltz extension not enabled",
         )
     decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
-    amount_sats = int(decrypted.amount)
+    amount_sats = await fossa.amount_to_sats(decrypted.amount)
     async with httpx.AsyncClient() as client:
         response = await client.post(
             url=f"http://{settings.host}:{settings.port}/boltz/api/v1/swap/reverse",
