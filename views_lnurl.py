@@ -111,7 +111,7 @@ async def lnurl_callback(
     wallet = await get_wallet(fossa.wallet)
     if not wallet:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Wallet not found.")
-    if wallet.balance_msat < (int(fossa_payment.sats / 1000) + 100):
+    if wallet.balance < fossa_payment.sats:
         raise HTTPException(HTTPStatus.BAD_REQUEST, "Not enough funds.")
 
     fossa_payment.payment_hash = "pending"
