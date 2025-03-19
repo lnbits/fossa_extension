@@ -12,7 +12,6 @@ from lnbits.decorators import (
 )
 from lnbits.helpers import is_valid_email_address
 from lnbits.settings import settings
-from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnurl import LnurlPayActionResponse, LnurlPayResponse
 from lnurl import execute_pay_request as lnurl_execute_pay_request
 from lnurl import handle as lnurl_handle
@@ -118,27 +117,20 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
         )
 
     decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
+    amount_sat = await fossa.amount_to_sats(decrypted.amount)
 
-    # Determine the price in msat
-    if fossa.currency != "sat":
-        amount_msat = (
-            await fiat_amount_as_satoshis(decrypted.amount / 100, fossa.currency) * 1000
-        )
-    else:
-        amount_msat = int(decrypted.amount) * 1000
-
-    if wallet.balance_msat < amount_msat:
+    if wallet.balance < amount_sat:
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN, detail="Not enough funds in wallet"
         )
 
-    ln = await _validate_payment_request(pr, amount_msat)
+    ln = await _validate_payment_request(pr, amount_sat * 1000)
 
     payment_id = lnurl_payload.iv
     fossa_payment = FossaPayment(
         id=payment_id,
         fossa_id=fossa.id,
-        sats=int(amount_msat / 1000),
+        sats=amount_sat,
         pin=decrypted.pin,
         payload=lnurl,
         payment_hash="pending",

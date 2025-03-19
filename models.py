@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
+from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnurl.types import LnurlPayMetadata
 from pydantic import BaseModel, Field
 
@@ -26,6 +27,16 @@ class Fossa(BaseModel):
     @property
     def lnurlpay_metadata(self) -> LnurlPayMetadata:
         return LnurlPayMetadata(json.dumps([["text/plain", self.title]]))
+
+    async def amount_to_sats(self, amount: float) -> int:
+        price_sat = (
+            int(amount)
+            if self.currency == "sat"
+            else await fiat_amount_as_satoshis(float(amount) / 100, self.currency)
+        )
+        if self.profit <= 0:
+            return price_sat
+        return int(price_sat - ((price_sat / 100) * self.profit))
 
 
 class FossaPayment(BaseModel):

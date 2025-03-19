@@ -57,19 +57,13 @@ async def fossa_lnurl_params(
     if not fossa:
         raise HTTPException(HTTPStatus.NOT_FOUND, "fossa not found on this server")
     decrypted = await _validate_payload(payload, iv, fossa.key)
-    if fossa.currency == "sat":
-        price_sat = int(decrypted.amount)
-    else:
-        price_sat = await fiat_amount_as_satoshis(
-            float(decrypted.amount) / 100, fossa.currency
-        )
-    price_sat = int(price_sat - ((price_sat / 100) * fossa.profit))
+    amount_sat = await fossa.amount_to_sats(decrypted.amount)
     url = request.url_for("fossa.lnurl_params", fossa_id=fossa.id)
     payload = str(lnurl_encode(str(url) + f"?p={payload}&iv={iv}"))
     fossa_payment = FossaPayment(
         id=iv,
         fossa_id=fossa.id,
-        sats=price_sat,
+        sats=amount_sat,
         pin=decrypted.pin,
         payload=payload,
     )

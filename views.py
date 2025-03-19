@@ -9,7 +9,6 @@ from lnbits.core.crud import (
 from lnbits.core.models import User
 from lnbits.decorators import check_user_exists
 from lnbits.helpers import template_renderer
-from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 
 from .crud import get_fossa, get_fossa_payment
 from .helpers import decrypt_payload, parse_lnurl_payload
@@ -48,6 +47,7 @@ async def atmpage(request: Request, lightning: str):
 
     # decrypt the payload
     decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
+    price_sat = await fossa.amount_to_sats(decrypted.amount)
 
     # check if boltz payouts is enabled but also check the boltz extension is enabled
     if fossa.boltz:
@@ -55,14 +55,6 @@ async def atmpage(request: Request, lightning: str):
         for extension in installed_extensions:
             if extension.id == "boltz" and extension.active:
                 fossa.boltz = False
-
-    # Determine the price in msat
-    if fossa.currency != "sat":
-        price_sat = await fiat_amount_as_satoshis(
-            decrypted.amount / 100, fossa.currency
-        )
-    else:
-        price_sat = int(decrypted.amount)
 
     # get to determine if the payload has been used
     payment = await get_fossa_payment(lnurl_payload.iv)
