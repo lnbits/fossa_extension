@@ -86,10 +86,6 @@ async def _validate_payment_request(pr: str, amount_msat: int) -> str:
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN, detail="Not valid payment request"
         )
-    if not invoice.payment_hash:
-        raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN, detail="Not valid payment request"
-        )
     if not invoice.amount_msat or int(invoice.amount_msat) != amount_msat:
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN,
