@@ -120,12 +120,17 @@ async def lnurl_callback(
     if wallet.balance_msat < (int(fossa_payment.sats / 1000) + 100):
         raise HTTPException(HTTPStatus.BAD_REQUEST, "Not enough funds.")
 
+    fossa_payment.payment_hash = "pending"
+    await update_fossa_payment(fossa_payment)
+
     payment = await pay_invoice(
         wallet_id=fossa.wallet,
         payment_request=pr,
         max_sat=int(fossa_payment.sats) + 100,
         extra={"tag": "fossa_withdraw"},
     )
+
     fossa_payment.payment_hash = payment.payment_hash
     await update_fossa_payment(fossa_payment)
+
     return {"status": "OK"}
