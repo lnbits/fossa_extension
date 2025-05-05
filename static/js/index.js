@@ -211,7 +211,7 @@ window.app = Vue.createApp({
       const fossa = _.findWhere(this.fossa, {
         id: fossaId
       })
-      const deviceString = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/atm/${fossa.id},${fossa.key},${fossa.currency}`
+      const deviceString = `${this.protocol}//${this.location}/fossa/api/v1/lnurl/${fossa.id},${fossa.key},${fossa.currency}`
       this.copyText(deviceString, 'Device string copied to clipboard!')
     },
     updateFossa(wallet, data) {
