@@ -25,7 +25,7 @@ from .crud import (
     get_fossas,
     update_fossa_payment,
 )
-from .helpers import decrypt_payload, parse_lnurl_payload
+from .helpers import aes_decrypt_payload, parse_lnurl_payload
 from .models import FossaPayment
 
 fossa_api_atm_router = APIRouter()
@@ -116,7 +116,12 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
             detail="Wallet does not exist.",
         )
 
-    decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
+    try:
+        decrypted = aes_decrypt_payload(fossa.key, lnurl_payload.payload)
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Invalid payload."
+        ) from e
     amount_sat = await fossa.amount_to_sats(decrypted.amount)
 
     if wallet.balance < amount_sat:
@@ -126,10 +131,10 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
 
     ln = await _validate_payment_request(pr, amount_sat * 1000)
 
-    payment_id = lnurl_payload.iv
     fossa_payment = FossaPayment(
-        id=payment_id,
+        id=lnurl_payload.payload,
         fossa_id=fossa.id,
+        amount=decrypted.amount,
         sats=amount_sat,
         pin=decrypted.pin,
         payload=lnurl,
@@ -140,7 +145,7 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
     payment = await pay_invoice(
         wallet_id=fossa.wallet,
         payment_request=ln,
-        extra={"tag": "fossa", "id": payment_id},
+        extra={"tag": "fossa", "id": fossa_payment.id},
     )
 
     fossa_payment.payment_hash = payment.payment_hash
@@ -172,7 +177,12 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Boltz extension not enabled",
         )
-    decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
+    try:
+        decrypted = aes_decrypt_payload(fossa.key, lnurl_payload.payload)
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Invalid payload."
+        ) from e
     amount_sats = await fossa.amount_to_sats(decrypted.amount)
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -195,8 +205,9 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
         print("BOLTZ RESPONSE")
         print(resp)
         fossa_payment = FossaPayment(
-            id=lnurl_payload.iv,
+            id=lnurl_payload.payload,
             fossa_id=fossa.id,
+            amount=decrypted.amount,
             sats=amount_sats,
             pin=decrypted.pin,
             payload=lnurl,

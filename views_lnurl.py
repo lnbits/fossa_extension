@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from bolt11 import decode as bolt11_decode
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from lnbits.core.crud import get_wallet
 from lnbits.core.services import pay_invoice
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
@@ -22,24 +22,27 @@ from .crud import (
     get_fossa_payment,
     update_fossa_payment,
 )
-from .helpers import LnurlDecrypted, decrypt_payload
-from .models import FossaPayment
+from .helpers import aes_decrypt_payload
+from .models import FossaPayment, LnurlDecrypted
 
 fossa_lnurl_router = APIRouter(prefix="/api/v1/lnurl")
 
 
-async def _validate_payload(payload: str, iv: str, key: str) -> LnurlDecrypted:
-    payment = await get_fossa_payment(iv)
-    if payment and payment.payment_hash:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Payment already claimed.")
-    if payment:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Payment already registered.")
+async def _validate_payload(payload: str, key: str) -> LnurlDecrypted:
+    if len(payload) % 22 != 0:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, "Invalid payload length.")
     try:
-        return decrypt_payload(key, iv, payload)
+        decrypted = aes_decrypt_payload(payload, key)
     except Exception as e:
         logger.debug(f"Error decrypting payload: {e}")
         logger.debug(f"Payload: {payload}")
         raise HTTPException(HTTPStatus.BAD_REQUEST, "Invalid payload.") from e
+    payment = await get_fossa_payment(payload)
+    if payment and payment.payment_hash:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, "Payment already claimed.")
+    if payment:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, "Payment already registered.")
+    return decrypted
 
 
 @fossa_lnurl_router.get(
@@ -51,21 +54,22 @@ async def fossa_lnurl_params(
     request: Request,
     fossa_id: str,
     payload: str = Query(..., alias="p"),
-    iv: str = Query(...),
 ):
     fossa = await get_fossa(fossa_id)
     if not fossa:
         raise HTTPException(HTTPStatus.NOT_FOUND, "fossa not found on this server")
-    decrypted = await _validate_payload(payload, iv, fossa.key)
+
+    decrypted = await _validate_payload(payload, fossa.key)
     amount_sat = await fossa.amount_to_sats(decrypted.amount)
     url = request.url_for("fossa.lnurl_params", fossa_id=fossa.id)
-    payload = str(lnurl_encode(str(url) + f"?p={payload}&iv={iv}"))
+    lnurl_payload = str(lnurl_encode(str(url) + f"?p={payload}"))
     fossa_payment = FossaPayment(
-        id=iv,
+        id=payload,
         fossa_id=fossa.id,
         sats=amount_sat,
+        amount=decrypted.amount,
         pin=decrypted.pin,
-        payload=payload,
+        payload=lnurl_payload,
     )
     fossa_payment = await create_fossa_payment(fossa_payment)
     return {
@@ -85,6 +89,7 @@ async def fossa_lnurl_params(
 )
 async def lnurl_callback(
     fossa_id: str,
+    background_tasks: BackgroundTasks,
     pr: str = Query(None),
     k1: str = Query(None),
 ):
@@ -114,17 +119,20 @@ async def lnurl_callback(
     if wallet.balance < fossa_payment.sats:
         raise HTTPException(HTTPStatus.BAD_REQUEST, "Not enough funds.")
 
+    # set to pending and pay invoice in background to prevent double spending
     fossa_payment.payment_hash = "pending"
     await update_fossa_payment(fossa_payment)
 
-    payment = await pay_invoice(
-        wallet_id=fossa.wallet,
-        payment_request=pr,
-        max_sat=int(fossa_payment.sats) + 100,
-        extra={"tag": "fossa_withdraw"},
-    )
+    async def _pay_invoice():
+        payment = await pay_invoice(
+            wallet_id=fossa.wallet,
+            payment_request=pr,
+            max_sat=int(fossa_payment.sats) + 100,
+            extra={"tag": "fossa"},
+        )
+        fossa_payment.payment_hash = payment.payment_hash
+        await update_fossa_payment(fossa_payment)
 
-    fossa_payment.payment_hash = payment.payment_hash
-    await update_fossa_payment(fossa_payment)
+    background_tasks.add_task(_pay_invoice)
 
     return {"status": "OK"}

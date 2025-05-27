@@ -11,7 +11,7 @@ from lnbits.decorators import check_user_exists
 from lnbits.helpers import template_renderer
 
 from .crud import get_fossa, get_fossa_payment
-from .helpers import decrypt_payload, parse_lnurl_payload
+from .helpers import aes_decrypt_payload, parse_lnurl_payload
 
 fossa_generic_router = APIRouter()
 
@@ -53,11 +53,16 @@ async def atmpage(request: Request, lightning: str):
                 fossa.boltz = False
 
     # decrypt the payload to get the amount
-    decrypted = decrypt_payload(fossa.key, lnurl_payload.iv, lnurl_payload.payload)
+    try:
+        decrypted = aes_decrypt_payload(fossa.key, lnurl_payload.payload)
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="Invalid payload."
+        ) from e
     amount_sat = await fossa.amount_to_sats(decrypted.amount)
 
     # get to determine if the payload has been used
-    payment = await get_fossa_payment(lnurl_payload.iv)
+    payment = await get_fossa_payment(lnurl_payload.payload)
 
     return fossa_renderer().TemplateResponse(
         "fossa/atm.html",

@@ -7,6 +7,16 @@ from lnurl.types import LnurlPayMetadata
 from pydantic import BaseModel, Field
 
 
+class LnurlDecrypted(BaseModel):
+    pin: int
+    amount: float
+
+
+class LnurlPayload(BaseModel):
+    fossa_id: str
+    payload: str
+
+
 class CreateFossa(BaseModel):
     title: str
     wallet: str
@@ -46,4 +56,5 @@ class FossaPayment(BaseModel):
     payload: str
     pin: int
     sats: int
+    amount: float
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
