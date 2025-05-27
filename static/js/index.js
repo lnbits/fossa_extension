@@ -166,7 +166,7 @@ window.app = Vue.createApp({
           LNbits.api
             .request(
               'DELETE',
-              '/fossa/api/v1/' + fossaId,
+              '/fossa/api/v1/fossa/' + fossaId,
               this.g.user.wallets[0].adminkey
             )
             .then(() => {

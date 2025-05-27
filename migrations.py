@@ -35,6 +35,7 @@ async def m001_initial(db):
     """
     )
 
+
 async def m002_addcolumn_amount(db):
     await db.execute(
         """

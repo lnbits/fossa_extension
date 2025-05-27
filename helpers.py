@@ -11,7 +11,7 @@ def aes_decrypt_payload(payload: str, key: str) -> LnurlDecrypted:
         aes = AESCipher(key)
         decrypted = aes.decrypt(payload, urlsafe=True)
     except Exception as e:
-        raise ValueError("Unable to decrypt payload.") from e
+        raise ValueError(e) from e
     pin, amount = decrypted.split(":")
     return LnurlDecrypted(pin=int(pin), amount=float(amount))
 

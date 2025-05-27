@@ -11,7 +11,7 @@ db = Database("ext_fossa")
 
 async def create_fossa(data: CreateFossa) -> Fossa:
     fossa_id = shortuuid.uuid()[:5]
-    fossa_key = urlsafe_short_hash()
+    fossa_key = urlsafe_short_hash()[:16]
     fossa = Fossa(
         id=fossa_id,
         key=fossa_key,
