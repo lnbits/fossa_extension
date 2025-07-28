@@ -1,10 +1,9 @@
 from http import HTTPStatus
 
 from bolt11 import decode as bolt11_decode
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Query, Request
 from lnbits.core.crud import get_wallet
 from lnbits.core.services import pay_invoice
-from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnurl import (
     CallbackUrl,
     LnurlErrorResponse,
@@ -12,9 +11,9 @@ from lnurl import (
     LnurlWithdrawResponse,
     MilliSatoshi,
 )
-from pydantic import parse_obj_as
 from lnurl import encode as lnurl_encode
 from loguru import logger
+from pydantic import parse_obj_as
 
 from .crud import (
     create_fossa_payment,
@@ -30,18 +29,18 @@ fossa_lnurl_router = APIRouter(prefix="/api/v1/lnurl")
 
 async def _validate_payload(payload: str, key: str) -> LnurlDecrypted:
     if len(payload) % 22 != 0:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Invalid payload length.")
+        raise ValueError("Invalid payload length.")
     try:
         decrypted = aes_decrypt_payload(payload, key)
     except Exception as e:
         logger.debug(f"Error decrypting payload: {e}")
         logger.debug(f"Payload: {payload}")
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Invalid payload.") from e
+        raise ValueError("Decryption failed.") from e
     payment = await get_fossa_payment(payload)
     if payment and payment.payment_hash:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Payment already claimed.")
+        raise ValueError("Payment already claimed.")
     if payment:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Payment already registered.")
+        raise ValueError("Payment already exists.")
     return decrypted
 
 
@@ -54,12 +53,16 @@ async def fossa_lnurl_params(
     request: Request,
     fossa_id: str,
     payload: str = Query(..., alias="p"),
-):
+) -> LnurlWithdrawResponse | LnurlErrorResponse:
     fossa = await get_fossa(fossa_id)
     if not fossa:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "fossa not found on this server")
+        return LnurlErrorResponse(reason="fossa not found on this server")
 
-    decrypted = await _validate_payload(payload, fossa.key)
+    try:
+        decrypted = await _validate_payload(payload, fossa.key)
+    except ValueError as e:
+        return LnurlErrorResponse(reason=str(e))
+
     amount_sat = await fossa.amount_to_sats(decrypted.amount)
     url = request.url_for("fossa.lnurl_params", fossa_id=fossa.id)
     lnurl_payload = str(lnurl_encode(str(url) + f"?p={payload}"))
@@ -72,14 +75,15 @@ async def fossa_lnurl_params(
         payload=lnurl_payload,
     )
     fossa_payment = await create_fossa_payment(fossa_payment)
-    return {
-        "tag": "withdrawRequest",
-        "callback": str(request.url_for("fossa.lnurl_callback", fossa_id=fossa.id)),
-        "k1": fossa_payment.id,
-        "minWithdrawable": fossa_payment.sats * 1000,
-        "maxWithdrawable": fossa_payment.sats * 1000,
-        "defaultDescription": f"{fossa.title} ID: {fossa_payment.id}",
-    }
+    url = request.url_for("fossa.lnurl_callback", fossa_id=fossa.id)
+    callback = parse_obj_as(CallbackUrl, str(url))
+    return LnurlWithdrawResponse(
+        callback= callback,
+        k1=fossa_payment.id,
+        minWithdrawable=MilliSatoshi(fossa_payment.sats * 1000),
+        maxWithdrawable=MilliSatoshi(fossa_payment.sats * 1000),
+        defaultDescription=f"{fossa.title} ID: {fossa_payment.id}",
+    )
 
 
 @fossa_lnurl_router.get(
@@ -92,32 +96,30 @@ async def lnurl_callback(
     background_tasks: BackgroundTasks,
     pr: str = Query(None),
     k1: str = Query(None),
-):
+) -> LnurlErrorResponse | LnurlSuccessResponse:
     if not k1:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Missing K1")
+        return LnurlErrorResponse(reason="Missing K1")
     if not pr:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "No payment request.")
+        return LnurlErrorResponse(reason="Missing payment request")
     try:
-        invoice = bolt11_decode(pr)
-        if not invoice.payment_hash:
-            raise ValueError("Not valid payment request.")
-    except Exception as e:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Bad bolt11 invoice.") from e
+        _ = bolt11_decode(pr)
+    except Exception:
+        return LnurlErrorResponse(reason="Invalid payment request.")
 
     fossa = await get_fossa(fossa_id)
     if not fossa:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Fossa not found.")
+        return LnurlErrorResponse(reason="Fossa not found.")
     fossa_payment = await get_fossa_payment(k1)
     if not fossa_payment:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Fossa payment not found.")
+        return LnurlErrorResponse(reason="Payment not found.")
     if fossa_payment.payment_hash:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Payment already claimed.")
+        return LnurlErrorResponse(reason="Payment already claimed.")
 
     wallet = await get_wallet(fossa.wallet)
     if not wallet:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Wallet not found.")
+        return LnurlErrorResponse(reason="Wallet not found.")
     if wallet.balance < fossa_payment.sats:
-        raise HTTPException(HTTPStatus.BAD_REQUEST, "Not enough funds.")
+        return LnurlErrorResponse(reason="Not enough funds in wallet.")
 
     # set to pending and pay invoice in background to prevent double spending
     fossa_payment.payment_hash = "pending"
@@ -135,4 +137,4 @@ async def lnurl_callback(
 
     background_tasks.add_task(_pay_invoice)
 
-    return {"status": "OK"}
+    return LnurlSuccessResponse()
