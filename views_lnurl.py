@@ -78,7 +78,7 @@ async def fossa_lnurl_params(
     url = request.url_for("fossa.lnurl_callback", fossa_id=fossa.id)
     callback = parse_obj_as(CallbackUrl, str(url))
     return LnurlWithdrawResponse(
-        callback= callback,
+        callback=callback,
         k1=fossa_payment.id,
         minWithdrawable=MilliSatoshi(fossa_payment.sats * 1000),
         maxWithdrawable=MilliSatoshi(fossa_payment.sats * 1000),
