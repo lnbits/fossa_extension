@@ -18,12 +18,12 @@ def aes_decrypt_payload(payload: str, key: str) -> LnurlDecrypted:
 
 def parse_lnurl_payload(lnurl: str) -> LnurlPayload:
     try:
-        url = str(lnurl_decode(lnurl))
+        decoded = lnurl_decode(lnurl)
     except Exception as e:
         raise ValueError("Unable to decode lnurl.") from e
 
     # Parse the URL to extract device ID and query parameters
-    parsed_url = urlparse(url)
+    parsed_url = urlparse(str(decoded.callback_url))
     query_string = parse_qs(parsed_url.query)
 
     p = query_string.get("p", [None])[0]
