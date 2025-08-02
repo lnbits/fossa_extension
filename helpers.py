@@ -1,10 +1,9 @@
 from urllib.parse import parse_qs, urlparse
 
 from lnbits.utils.crypto import AESCipher
-from lnurl import decode as lnurl_decode
+from lnurl import url_decode
 
 from .models import LnurlDecrypted, LnurlPayload
-
 
 def aes_decrypt_payload(payload: str, key: str) -> LnurlDecrypted:
     try:
@@ -18,20 +17,18 @@ def aes_decrypt_payload(payload: str, key: str) -> LnurlDecrypted:
 
 def parse_lnurl_payload(lnurl: str) -> LnurlPayload:
     try:
-        decoded = lnurl_decode(lnurl)
+        url = str(url_decode(lnurl))
     except Exception as e:
         raise ValueError("Unable to decode lnurl.") from e
 
     # Parse the URL to extract device ID and query parameters
     parsed_url = urlparse(str(decoded.callback_url))
     query_string = parse_qs(parsed_url.query)
-
     p = query_string.get("p", [None])[0]
     if p is None:
         raise ValueError("Missing 'p' parameter.")
 
     fossa_id = parsed_url.path.split("/")[-1]
-
     return LnurlPayload(
         fossa_id=fossa_id,
         payload=p,

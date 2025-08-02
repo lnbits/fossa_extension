@@ -48,7 +48,6 @@ async def fossa_lnurl_params(
         msg = aes.decrypt(payload, urlsafe=True)
     except Exception as e:
         logger.debug(f"Error decrypting payload: {e}")
-        logger.debug(f"Payload: {payload}")
         return LnurlErrorResponse(reason="Invalid payload.")
     
     pin, amount_in_cent = msg.split(":")
