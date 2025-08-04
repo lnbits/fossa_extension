@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from math import ceil
+
 from bolt11 import decode as bolt11_decode
 from fastapi import APIRouter, BackgroundTasks, Query, Request
 from lnbits.core.crud import get_wallet
@@ -23,10 +24,10 @@ from .crud import (
     get_fossa_payment,
     update_fossa_payment,
 )
-
 from .models import FossaPayment
 
 fossa_lnurl_router = APIRouter(prefix="/api/v1/lnurl")
+
 
 @fossa_lnurl_router.get(
     "/{fossa_id}",
@@ -49,7 +50,7 @@ async def fossa_lnurl_params(
     except Exception as e:
         logger.debug(f"Error decrypting payload: {e}")
         return LnurlErrorResponse(reason="Invalid payload.")
-    
+
     pin, amount_in_cent = msg.split(":")
 
     price_sat = (
@@ -109,7 +110,7 @@ async def lnurl_callback(
         _ = bolt11_decode(pr)
     except Exception:
         return LnurlErrorResponse(reason="Invalid payment request.")
-    
+
     fossa_payment = await get_fossa_payment(payment_id)
     if not fossa_payment:
         return LnurlErrorResponse(reason="Payment not found.")
@@ -129,6 +130,7 @@ async def lnurl_callback(
         # set to pending and pay invoice in background to prevent double spending
         fossa_payment.payment_hash = "pending"
         await update_fossa_payment(fossa_payment)
+
         async def _pay_invoice():
             payment = await pay_invoice(
                 wallet_id=fossa.wallet,
@@ -138,6 +140,7 @@ async def lnurl_callback(
             )
             fossa_payment.payment_hash = payment.payment_hash
             await update_fossa_payment(fossa_payment)
+
         background_tasks.add_task(_pay_invoice)
         return LnurlSuccessResponse()
     except Exception as e:

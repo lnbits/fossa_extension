@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -9,13 +10,12 @@ from lnbits.core.crud import (
 from lnbits.core.models import User
 from lnbits.decorators import check_user_exists
 from lnbits.helpers import template_renderer
+from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
+from loguru import logger
 
 from .crud import get_fossa, get_fossa_payment
-from .helpers import parse_lnurl_payload
-from loguru import logger
-from lnbits.utils.crypto import AESCipher
-from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
-from math import ceil
+from .helpers import aes_decrypt_payload, parse_lnurl_payload
+
 fossa_generic_router = APIRouter()
 
 
@@ -57,19 +57,16 @@ async def atmpage(request: Request, lightning: str):
 
     # decrypt the payload to get the amount
     try:
-        aes = AESCipher(fossa.key)
-        msg = aes.decrypt(lnurl_payload.payload, urlsafe=True)
+        decrypted = aes_decrypt_payload(lnurl_payload.payload, fossa.key)
     except Exception as e:
         logger.debug(f"Error decrypting payload: {e}")
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Invalid payload.."
-        )
-    
-    _, amount_in_cent = msg.split(":")
+        ) from e
     price_sat = (
-        await fiat_amount_as_satoshis(float(amount_in_cent) / 100, fossa.currency)
+        await fiat_amount_as_satoshis(decrypted.amount / 100, fossa.currency)
         if fossa.currency != "sat"
-        else ceil(float(amount_in_cent))
+        else ceil(float(decrypted.amount))
     )
     if price_sat is None:
         raise HTTPException(
