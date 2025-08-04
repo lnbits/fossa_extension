@@ -40,7 +40,6 @@ async def atmpage(request: Request, lightning: str):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Unable to find fossa."
         )
-    logger.debug(fossa)
     # Check wallet and user access
     wallet = await get_wallet(fossa.wallet)
     if not wallet:
