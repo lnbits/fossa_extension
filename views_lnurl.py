@@ -5,7 +5,6 @@ from bolt11 import decode as bolt11_decode
 from fastapi import APIRouter, BackgroundTasks, Query, Request
 from lnbits.core.crud import get_wallet
 from lnbits.core.services import pay_invoice
-from lnbits.utils.crypto import AESCipher
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnurl import (
     CallbackUrl,
@@ -24,6 +23,7 @@ from .crud import (
     get_fossa_payment,
     update_fossa_payment,
 )
+from .helpers import aes_decrypt_payload
 from .models import FossaPayment
 
 fossa_lnurl_router = APIRouter(prefix="/api/v1/lnurl")
@@ -45,18 +45,15 @@ async def fossa_lnurl_params(
     if len(payload) % 22 != 0:
         return LnurlErrorResponse(reason="Invalid payload length.")
     try:
-        aes = AESCipher(fossa.key)
-        msg = aes.decrypt(payload, urlsafe=True)
+        decrypted = aes_decrypt_payload(payload, fossa.key)
     except Exception as e:
         logger.debug(f"Error decrypting payload: {e}")
         return LnurlErrorResponse(reason="Invalid payload.")
 
-    pin, amount_in_cent = msg.split(":")
-
     price_sat = (
-        await fiat_amount_as_satoshis(float(amount_in_cent) / 100, fossa.currency)
+        await fiat_amount_as_satoshis(float(decrypted.amount) / 100, fossa.currency)
         if fossa.currency != "sat"
-        else ceil(float(amount_in_cent))
+        else ceil(float(decrypted.amount))
     )
     if price_sat is None:
         return LnurlErrorResponse(reason="Price fetch error.")
@@ -71,8 +68,8 @@ async def fossa_lnurl_params(
             id=payload,
             fossa_id=fossa.id,
             sats=price_sat,
-            amount=amount_in_cent,
-            pin=pin,
+            amount=decrypted.amount,
+            pin=decrypted.pin,
             payload=lnurl_payload,
         )
         await create_fossa_payment(fossa_payment)
