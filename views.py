@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -9,6 +10,8 @@ from lnbits.core.crud import (
 from lnbits.core.models import User
 from lnbits.decorators import check_user_exists
 from lnbits.helpers import template_renderer
+from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
+from loguru import logger
 
 from .crud import get_fossa, get_fossa_payment
 from .helpers import aes_decrypt_payload, parse_lnurl_payload
@@ -37,7 +40,6 @@ async def atmpage(request: Request, lightning: str):
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Unable to find fossa."
         )
-
     # Check wallet and user access
     wallet = await get_wallet(fossa.wallet)
     if not wallet:
@@ -54,12 +56,23 @@ async def atmpage(request: Request, lightning: str):
 
     # decrypt the payload to get the amount
     try:
-        decrypted = aes_decrypt_payload(fossa.key, lnurl_payload.payload)
+        decrypted = aes_decrypt_payload(lnurl_payload.payload, fossa.key)
     except Exception as e:
+        logger.debug(f"Error decrypting payload: {e}")
         raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST, detail="Invalid payload."
+            status_code=HTTPStatus.NOT_FOUND, detail="Invalid payload.."
         ) from e
-    amount_sat = await fossa.amount_to_sats(decrypted.amount)
+    price_sat = (
+        await fiat_amount_as_satoshis(decrypted.amount / 100, fossa.currency)
+        if fossa.currency != "sat"
+        else ceil(float(decrypted.amount))
+    )
+    if price_sat is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Price fetch error."
+        )
+
+    price_sat = int(price_sat * ((fossa.profit / 100) + 1))
 
     # get to determine if the payload has been used
     payment = await get_fossa_payment(lnurl_payload.payload)
@@ -69,7 +82,7 @@ async def atmpage(request: Request, lightning: str):
         {
             "request": request,
             "lnurl": lightning,
-            "amount_sat": amount_sat,
+            "amount_sat": price_sat,
             "fossa_id": fossa.id,
             "boltz": fossa.boltz,
             "used": payment and payment.payment_hash,
