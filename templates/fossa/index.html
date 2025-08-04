@@ -170,7 +170,7 @@
                   flat
                   dense
                   size="xs"
-                  @click="openAtmLink(props.row.fossa_id, props.row.payload)"
+                  @click="openAtmLink(props.row.payload)"
                   icon="link"
                   color="grey"
                 >
@@ -244,10 +244,6 @@
             >,
             <a class="text-secondary" href="https://github.com/dni">dni</a>
           </small>
-        </p>
-        <p class="text-warning">
-          WARNING: updating the switches amount, duration or pin will change the
-          QR code.
         </p>
       </q-card-section>
     </q-card>

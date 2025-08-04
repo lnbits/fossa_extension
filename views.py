@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from urllib.parse import parse_qs, urlparse
+from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -10,12 +10,11 @@ from lnbits.core.crud import (
 from lnbits.core.models import User
 from lnbits.decorators import check_user_exists
 from lnbits.helpers import template_renderer
-from lnurl import decode as lnurl_decode
-from lnurl import encode as lnurl_encode
+from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from loguru import logger
 
 from .crud import get_fossa, get_fossa_payment
-from .helpers import register_atm_payment
+from .helpers import aes_decrypt_payload, parse_lnurl_payload
 
 fossa_generic_router = APIRouter()
 
@@ -35,53 +34,13 @@ async def index(request: Request, user: User = Depends(check_user_exists)):
 @fossa_generic_router.get("/atm", response_class=HTMLResponse)
 async def atmpage(request: Request, lightning: str):
 
-    # Debug log for the incoming lightning request
-    logger.debug(lightning)
-
-    # Decode the lightning URL
-    url = str(lnurl_decode(lightning))
-    if not url:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND, detail="Unable to decode lnurl."
-        )
-
-    # Parse the URL to extract fossa ID and query parameters
-    parsed_url = urlparse(url)
-    fossa_id = parsed_url.path.split("/")[-1]
-    fossa = await get_fossa(fossa_id)
+    lnurl_payload = parse_lnurl_payload(lightning)
+    fossa = await get_fossa(lnurl_payload.fossa_id)
     if not fossa:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Unable to find fossa."
         )
-
-    # Extract and validate the 'p' parameter
-    p = parse_qs(parsed_url.query).get("p", [None])[0]
-    if p is None:
-        raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST, detail="Missing 'p' parameter."
-        )
-
-    # Adjust for base64 padding if necessary
-    p += "=" * (-len(p) % 4)
-
-    # Decode and decrypt the 'p' parameter
-    # try:
-    #     # data = base64.urlsafe_b64decode(p)
-    #     # decrypted = xor_decrypt(fossa.key.encode(), data)
-    # except Exception as exc:
-    #     raise HTTPException(
-    #         status_code=HTTPStatus.BAD_REQUEST, detail=f"{exc!s}"
-    #     ) from exc
-
-    # Determine the price in msat
-    # if fossa.currency != "sat":
-    #     price_msat = await fiat_amount_as_satoshis(
-    #        decrypted[1] / 100, fossa.currency)
-    # else:
-    #     price_msat = decrypted[1]
-
     # Check wallet and user access
-
     wallet = await get_wallet(fossa.wallet)
     if not wallet:
         raise HTTPException(
@@ -89,28 +48,44 @@ async def atmpage(request: Request, lightning: str):
         )
 
     # check if boltz payouts is enabled but also check the boltz extension is enabled
-    access = False
     if fossa.boltz:
         installed_extensions = await get_installed_extensions(active=True)
         for extension in installed_extensions:
             if extension.id == "boltz" and extension.active:
-                access = True
-                logger.debug(access)
+                fossa.boltz = False
 
-    # Attempt to get recent payment information
-    fossa_payment, sats = await register_atm_payment(fossa, p)
-    # Render the response template
+    # decrypt the payload to get the amount
+    try:
+        decrypted = aes_decrypt_payload(lnurl_payload.payload, fossa.key)
+    except Exception as e:
+        logger.debug(f"Error decrypting payload: {e}")
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Invalid payload.."
+        ) from e
+    price_sat = (
+        await fiat_amount_as_satoshis(decrypted.amount / 100, fossa.currency)
+        if fossa.currency != "sat"
+        else ceil(float(decrypted.amount))
+    )
+    if price_sat is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Price fetch error."
+        )
+
+    price_sat = int(price_sat * ((fossa.profit / 100) + 1))
+
+    # get to determine if the payload has been used
+    payment = await get_fossa_payment(lnurl_payload.payload)
+
     return fossa_renderer().TemplateResponse(
         "fossa/atm.html",
         {
             "request": request,
             "lnurl": lightning,
-            "amount": sats,
+            "amount_sat": price_sat,
             "fossa_id": fossa.id,
-            "boltz": True if access else False,
-            "p": p,
-            "recentpay": fossa_payment.id if fossa_payment else False,
-            "used": (True if not fossa_payment else False),
+            "boltz": fossa.boltz,
+            "used": payment and payment.payment_hash,
         },
     )
 
@@ -128,22 +103,15 @@ async def print_receipt(request: Request, payment_id):
             status_code=HTTPStatus.NOT_FOUND, detail="Unable to find fossa."
         )
 
-    lnurl = lnurl_encode(
-        str(request.url_for("fossa.lnurl_params", fossa_id=fossa_payment.fossa_id))
-        + "?atm=1&p="
-        + fossa_payment.payload
-    )
-    logger.debug(lnurl)
     return fossa_renderer().TemplateResponse(
         "fossa/atm_receipt.html",
         {
             "request": request,
             "id": fossa_payment.id,
             "fossa_id": fossa_payment.fossa_id,
-            "name": fossa.title,
+            "title": fossa.title,
             "payment_hash": fossa_payment.payment_hash,
-            "payload": fossa_payment.payload,
             "sats": fossa_payment.sats,
-            "lnurl": lnurl,
+            "lnurl": fossa_payment.payload,
         },
     )

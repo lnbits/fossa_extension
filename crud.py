@@ -11,7 +11,7 @@ db = Database("ext_fossa")
 
 async def create_fossa(data: CreateFossa) -> Fossa:
     fossa_id = shortuuid.uuid()[:5]
-    fossa_key = urlsafe_short_hash()
+    fossa_key = urlsafe_short_hash()[:16]
     fossa = Fossa(
         id=fossa_id,
         key=fossa_key,
@@ -84,37 +84,6 @@ async def get_fossa_payments(
         ORDER BY id
         """,
         model=FossaPayment,
-    )
-
-
-async def get_fossa_payment_by_payhash(
-    payhash: str,
-) -> Optional[FossaPayment]:
-    return await db.fetchone(
-        "SELECT * FROM fossa.fossa_payment WHERE payhash = :payhash",
-        {"payhash": payhash},
-        FossaPayment,
-    )
-
-
-async def get_fossa_payment_by_payload(
-    payload: str,
-) -> Optional[FossaPayment]:
-    return await db.fetchone(
-        "SELECT * FROM fossa.fossa_payment WHERE payload = :payload",
-        {"payload": payload},
-        FossaPayment,
-    )
-
-
-async def get_recent_fossa_payment(payload: str) -> Optional[FossaPayment]:
-    return await db.fetchone(
-        """
-        SELECT * FROM fossa.fossa_payment
-        WHERE payload = :payload ORDER BY timestamp DESC LIMIT 1
-        """,
-        {"payload": payload},
-        FossaPayment,
     )
 
 
