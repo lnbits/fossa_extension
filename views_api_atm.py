@@ -71,7 +71,7 @@ async def _validate_payment_request(pr: str, amount_msat: int) -> str:
                 status_code=HTTPStatus.FORBIDDEN, detail="Not valid LNURL Pay response"
             )
         res2 = await lnurl_execute_pay_request(
-            res, msat=str(amount_msat), user_agent=settings.user_agent
+            res, msat=amount_msat, user_agent=settings.user_agent
         )
         if not isinstance(res2, LnurlPayActionResponse):
             raise HTTPException(
