@@ -25,12 +25,12 @@
           ></q-tab>
 
           <q-tab
-            :disable="!boltz || amount_sat < 50000000"
+            :disable="!boltz || amount_sat < 50000"
             name="onchain"
             label="onchain"
             @update="val => tab = val.name"
           >
-            <q-tooltip v-if="boltz && amount_sat < 50000000"
+            <q-tooltip v-if="boltz && amount_sat < 50000"
               >Amount is too small to send over onchain, needs to be 50000+
               sats</q-tooltip
             >
@@ -38,12 +38,12 @@
           </q-tab>
 
           <q-tab
-            :disable="!boltz || amount_sat < 1000000"
+            :disable="!boltz || amount_sat < 1000"
             name="liquid"
             label="liquid"
             @update="val => tab = val.name"
           >
-            <q-tooltip v-if="boltz && amount_sat < 1000000"
+            <q-tooltip v-if="boltz && amount_sat < 1000"
               >Amount is too small to send over liquid, needs to be 1000+
               sats</q-tooltip
             >
