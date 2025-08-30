@@ -85,7 +85,7 @@ async def atmpage(request: Request, lightning: str):
             "amount_sat": price_sat,
             "fossa_id": fossa.id,
             "boltz": fossa.boltz,
-            "used": payment and payment.payment_hash,
+            "used": bool(payment and payment.payment_hash),
         },
     )
 
