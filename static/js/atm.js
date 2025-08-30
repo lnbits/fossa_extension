@@ -9,6 +9,7 @@ window.app = Vue.createApp({
       boltz: boltz,
       amount_sat: amount_sat,
       used: used,
+      recentpay: recentpay,
       tab: 'lnurl',
       ln: '',
       address: '',

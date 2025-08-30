@@ -76,7 +76,6 @@ async def atmpage(request: Request, lightning: str):
 
     # get to determine if the payload has been used
     payment = await get_fossa_payment(lnurl_payload.payload)
-
     return fossa_renderer().TemplateResponse(
         "fossa/atm.html",
         {
@@ -86,6 +85,7 @@ async def atmpage(request: Request, lightning: str):
             "fossa_id": fossa.id,
             "boltz": fossa.boltz,
             "used": bool(payment and payment.payment_hash),
+            "recentpay": getattr(payment, "id", None),
         },
     )
 
@@ -108,10 +108,10 @@ async def print_receipt(request: Request, payment_id):
         {
             "request": request,
             "id": fossa_payment.id,
-            "fossa_id": fossa_payment.fossa_id,
+            "fossa_id": fossa.id,
             "title": fossa.title,
-            "payment_hash": fossa_payment.payment_hash,
+            "payment_hash": bool(fossa_payment.payment_hash),
             "sats": fossa_payment.sats,
-            "lnurl": fossa_payment.payload,
+            "payload": fossa_payment.payload,
         },
     )
