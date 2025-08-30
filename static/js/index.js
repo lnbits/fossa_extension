@@ -255,7 +255,10 @@ window.app = Vue.createApp({
       LNbits.utils.exportCSV(this.atmTable.columns, this.atmLinks)
     },
     openAtmLink(payload) {
-      window.open('/fossa/atm?lightning=' + payload)
+      const bytes = new TextEncoder().encode(payload)
+      const bech32 = NostrTools.nip19.encodeBytes('lnurl', bytes)
+      lnurl = bech32.toUpperCase()
+      window.open('/fossa/atm?lightning=' + lnurl)
     }
   },
   created() {
