@@ -47,7 +47,7 @@ async def atmpage(request: Request, lightning: str):
             status_code=HTTPStatus.NOT_FOUND, detail="Wallet not found."
         )
 
-   # check if boltz payouts is enabled but also check the boltz extension is enabled
+    # check if boltz payouts is enabled but also check the boltz extension is enabled
     if fossa.boltz:
         fossa.boltz = False
         installed_extensions = await get_installed_extensions(active=True)

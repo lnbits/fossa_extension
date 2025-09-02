@@ -5,43 +5,43 @@
     <page size="A4" id="pdfprint">
       <div class="wrapper" style="padding-top: 30px">
         <center>
-        <h4>ATM receipt for: "{{title}}"</h4>
-        <span>{{ sats }} sats</span>
-        <table>
-          <tr>
-            <td><b>Payment ID</b></td>
-            <td>{{id}}</td>
-          </tr>
+          <h4>ATM receipt for: "{{title}}"</h4>
+          <span>{{ sats }} sats</span>
+          <table>
+            <tr>
+              <td><b>Payment ID</b></td>
+              <td>{{id}}</td>
+            </tr>
 
-          <tr>
-            <td><b>Amount</b></td>
-            <td>{{sats}} Sats</td>
-          </tr>
-          <tr>
-            <td><b>Device</b></td>
-            <td>{{name}} ({{fossa_id}})</td>
-          </tr>
-          <tr>
-            <td><b>Claimed</b></td>
-            <td>{{ payment_hash }}</td>
-          </tr>
-        </table>
+            <tr>
+              <td><b>Amount</b></td>
+              <td>{{sats}} Sats</td>
+            </tr>
+            <tr>
+              <td><b>Device</b></td>
+              <td>{{name}} ({{fossa_id}})</td>
+            </tr>
+            <tr>
+              <td><b>Claimed</b></td>
+              <td>{{ payment_hash }}</td>
+            </tr>
+          </table>
 
-        <div class="row" style="width: 70%; padding-top: 30px">
-          <div class="col">
-            (scan with a wallet to claim/scan with normal qr scanner for claim
-            page)
-            <div>
-              <a :href=lnurl>
-              <lnbits-qrcode
-                :value="lnurl"
-                :options="{width: 400, margin: 4}"
-              ></lnbits-qrcode>
-              </a>
+          <div class="row" style="width: 70%; padding-top: 30px">
+            <div class="col">
+              (scan with a wallet to claim/scan with normal qr scanner for claim
+              page)
+              <div>
+                <a :href="lnurl">
+                  <lnbits-qrcode
+                    :value="lnurl"
+                    :options="{width: 400, margin: 4}"
+                  ></lnbits-qrcode>
+                </a>
+              </div>
             </div>
           </div>
-        </div>
-        </center>      
+        </center>
       </div>
     </page>
   </div>
@@ -139,7 +139,7 @@
           data: null
         },
         payload: '{{ payload }}',
-        lnurl: ""
+        lnurl: ''
       }
     },
     created() {
@@ -147,7 +147,7 @@
       const bytes = new TextEncoder().encode(this.payload)
       const bech32 = NostrTools.nip19.encodeBytes('lnurl', bytes)
       lnurl = bech32.toUpperCase()
-      this.lnurl = (this.theurl + '/fossa/atm?lightning=' + lnurl)
+      this.lnurl = this.theurl + '/fossa/atm?lightning=' + lnurl
     }
   })
 </script>
