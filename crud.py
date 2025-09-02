@@ -1,5 +1,3 @@
-from typing import Optional
-
 import shortuuid
 from lnbits.db import Database
 from lnbits.helpers import urlsafe_short_hash
@@ -30,7 +28,7 @@ async def update_fossa(fossa: Fossa) -> Fossa:
     return fossa
 
 
-async def get_fossa(fossa_id: str) -> Optional[Fossa]:
+async def get_fossa(fossa_id: str) -> Fossa | None:
     return await db.fetchone(
         "SELECT * FROM fossa.fossa WHERE id = :id",
         {"id": fossa_id},
@@ -64,7 +62,7 @@ async def update_fossa_payment(fossa_payment: FossaPayment) -> FossaPayment:
 
 async def get_fossa_payment(
     fossa_payment_id: str,
-) -> Optional[FossaPayment]:
+) -> FossaPayment | None:
     return await db.fetchone(
         "SELECT * FROM fossa.fossa_payment WHERE id = :id",
         {"id": fossa_payment_id},
