@@ -143,7 +143,6 @@
       }
     },
     created() {
-      console.log(this.payload)
       const bytes = new TextEncoder().encode(this.payload)
       const bech32 = NostrTools.nip19.encodeBytes('lnurl', bytes)
       lnurl = bech32.toUpperCase()
