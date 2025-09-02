@@ -1,6 +1,5 @@
 import json
 from datetime import datetime, timezone
-from typing import Optional
 
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnurl.types import LnurlPayMetadata
@@ -52,7 +51,7 @@ class Fossa(BaseModel):
 class FossaPayment(BaseModel):
     id: str
     fossa_id: str
-    payment_hash: Optional[str] = None
+    payment_hash: str | None = None
     payload: str
     pin: int
     sats: int
