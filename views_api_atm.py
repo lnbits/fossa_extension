@@ -2,10 +2,12 @@ from http import HTTPStatus
 
 import bolt11
 import httpx
+from math import ceil
 from fastapi import APIRouter, Depends, HTTPException
 from lnbits.core.crud import get_user, get_wallet
 from lnbits.core.models import SimpleStatus, WalletTypeInfo
 from lnbits.core.services import pay_invoice
+from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnbits.decorators import (
     check_user_extension_access,
     require_admin_key,
@@ -130,29 +132,42 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
         )
 
     ln = await _validate_payment_request(pr, amount_sat * 1000)
+    fossa_payment = await get_fossa_payment(lnurl_payload.payload)
+    if not fossa_payment:
+        fossa_payment = FossaPayment(
+            id=lnurl_payload.payload,
+            fossa_id=fossa.id,
+            amount=decrypted.amount,
+            sats=amount_sat,
+            pin=decrypted.pin,
+            payload=lnurl,
+            payment_hash="pending",
+        )
+        await create_fossa_payment(fossa_payment)
+    else:
+        if fossa_payment.payment_hash:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Payment already claimed.",
+            )
+    try:
+        payment = await pay_invoice(
+            wallet_id=fossa.wallet,
+            payment_request=ln,
+            extra={"tag": "fossa", "id": fossa_payment.id},
+        )
 
-    fossa_payment = FossaPayment(
-        id=lnurl_payload.payload,
-        fossa_id=fossa.id,
-        amount=decrypted.amount,
-        sats=amount_sat,
-        pin=decrypted.pin,
-        payload=lnurl,
-        payment_hash="pending",
-    )
-    await create_fossa_payment(fossa_payment)
+        fossa_payment.payment_hash = payment.payment_hash
+        await update_fossa_payment(fossa_payment)
 
-    payment = await pay_invoice(
-        wallet_id=fossa.wallet,
-        payment_request=ln,
-        extra={"tag": "fossa", "id": fossa_payment.id},
-    )
-
-    fossa_payment.payment_hash = payment.payment_hash
-    await update_fossa_payment(fossa_payment)
-
-    return SimpleStatus(success=True, message="Payment successful")
-
+        return SimpleStatus(success=True, message="Payment successful")
+    except Exception as e:
+        fossa_payment.payment_hash = None
+        await update_fossa_payment(fossa_payment)
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Payment already claimed.",
+        )
 
 @fossa_api_atm_router.get("/api/v1/boltz/{lnurl}/{onchain_liquid}/{address}")
 async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str):
@@ -178,40 +193,79 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             detail="Boltz extension not enabled",
         )
     try:
-        decrypted = aes_decrypt_payload(fossa.key, lnurl_payload.payload)
+        decrypted = aes_decrypt_payload(lnurl_payload.payload, fossa.key)
     except Exception as e:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST, detail="Invalid payload."
         ) from e
-    amount_sats = await fossa.amount_to_sats(decrypted.amount)
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            url=f"http://{settings.host}:{settings.port}/boltz/api/v1/swap/reverse",
-            headers={"X-API-KEY": wallet.adminkey},
-            json={
-                "wallet": fossa.wallet,
-                "asset": onchain_liquid.replace("temp", "/"),
-                "amount": amount_sats,
-                "direction": "send",
-                "instant_settlement": True,
-                "onchain_address": address,
-                "feerate": False,
-                "feerate_value": 0,
-            },
+    price_sat = (
+        await fiat_amount_as_satoshis(float(decrypted.amount) / 100, fossa.currency)
+        if fossa.currency != "sat"
+        else ceil(float(decrypted.amount))
+    )
+    if price_sat is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Price fetch error",
         )
-        response.raise_for_status()
-        resp = response.json()
-        # TODO get payment_hash from boltz reverse swap
-        print("BOLTZ RESPONSE")
-        print(resp)
+    price_sat = int(price_sat * ((fossa.profit / 100) + 1))
+    amount_sats = await fossa.amount_to_sats(decrypted.amount)
+    fossa_payment = await get_fossa_payment(lnurl_payload.payload)
+    if not fossa_payment:
         fossa_payment = FossaPayment(
             id=lnurl_payload.payload,
             fossa_id=fossa.id,
+            sats=price_sat,
             amount=decrypted.amount,
-            sats=amount_sats,
             pin=decrypted.pin,
-            payload=lnurl,
-            payment_hash=resp.get("payment_hash", "invalid_boltz_payment_hash"),
+            payload=lnurl_payload,
         )
         await create_fossa_payment(fossa_payment)
-        return resp
+    else:
+        if fossa_payment.payment_hash:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Payment already claimed.",
+            )
+    try:
+        # set to pending and pay invoice in background to prevent double spending
+        fossa_payment.payment_hash = "pending"
+        await update_fossa_payment(fossa_payment)
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url=f"http://{settings.host}:{settings.port}/boltz/api/v1/swap/reverse",
+                headers={"X-API-KEY": wallet.adminkey},
+                json={
+                    "wallet": fossa.wallet,
+                    "asset": onchain_liquid.replace("temp", "/"),
+                    "amount": amount_sats,
+                    "direction": "send",
+                    "instant_settlement": True,
+                    "onchain_address": address,
+                    "feerate": False,
+                    "feerate_value": 0,
+                },
+            )
+            response.raise_for_status()
+            resp = response.json()
+            # TODO get payment_hash from boltz reverse swap
+            print("BOLTZ RESPONSE")
+            print(resp)
+            fossa_payment = FossaPayment(
+                id=lnurl_payload.payload,
+                fossa_id=fossa.id,
+                amount=decrypted.amount,
+                sats=amount_sats,
+                pin=decrypted.pin,
+                payload=lnurl,
+                payment_hash=resp.get("payment_hash", "invalid_boltz_payment_hash"),
+            )
+            await create_fossa_payment(fossa_payment)
+            return resp
+    except Exception as e:
+        fossa_payment.payment_hash = None
+        await update_fossa_payment(fossa_payment)
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Payment already claimed.",
+        )
