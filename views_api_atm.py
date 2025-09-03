@@ -156,7 +156,7 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
             payment_request=ln,
             extra={"tag": "fossa", "id": fossa_payment.id},
         )
-
+        assert payment.payment_hash
         fossa_payment.payment_hash = payment.payment_hash
         await update_fossa_payment(fossa_payment)
 
@@ -166,7 +166,7 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
         await update_fossa_payment(fossa_payment)
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
-            detail="Payment already claimed.",
+            detail="withdraw failed, try again later",
         )
 
 @fossa_api_atm_router.get("/api/v1/boltz/{lnurl}/{onchain_liquid}/{address}")
@@ -210,6 +210,10 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
         )
     price_sat = int(price_sat * ((fossa.profit / 100) + 1))
     amount_sats = await fossa.amount_to_sats(decrypted.amount)
+    if wallet.balance < amount_sats:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN, detail="Not enough funds in wallet"
+        )
     fossa_payment = await get_fossa_payment(lnurl_payload.payload)
     if not fossa_payment:
         fossa_payment = FossaPayment(
@@ -248,22 +252,16 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             )
             response.raise_for_status()
             resp = response.json()
-            if not resp.get("payment_hash"):
-                fossa_payment.payment_hash = None
-                await update_fossa_payment(fossa_payment)
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND,
-                    detail="Boltz payment could not be made, try again later",
-                )
-            else:
-                fossa_payment.payment_hash = resp.get("payment_hash")
-                await update_fossa_payment(fossa_payment)
-                return resp
+            assert resp.get("payment_hash")
+            # swap succeeded, update to the actual payment hash
+            fossa_payment.payment_hash = resp.get("payment_hash")
+            await update_fossa_payment(fossa_payment)
+            return resp
             
     except Exception as e:
         fossa_payment.payment_hash = None
         await update_fossa_payment(fossa_payment)
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
-            detail="Payment already claimed.",
+            detail="Boltz payment could not be made, try again later",
         )
