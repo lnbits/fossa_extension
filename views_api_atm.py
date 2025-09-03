@@ -101,7 +101,9 @@ async def _validate_payment_request(pr: str, amount_msat: int) -> str:
 
 
 @fossa_api_atm_router.get("/api/v1/ln/{lnurl}/{withdraw_request}")
-async def get_fossa_payment_lightning(lnurl: str, withdraw_request: str) -> SimpleStatus:
+async def get_fossa_payment_lightning(
+    lnurl: str, withdraw_request: str
+) -> SimpleStatus:
     """
     Handle Lightning payments for atms via invoice, lnaddress, lnurlp (withdraw_request)
     """
