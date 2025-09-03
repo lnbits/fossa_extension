@@ -130,15 +130,15 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN, detail="Not enough funds in wallet"
         )
-
+    price_sat = int(price_sat * ((fossa.profit / 100) + 1))
     ln = await _validate_payment_request(pr, amount_sat * 1000)
     fossa_payment = await get_fossa_payment(lnurl_payload.payload)
     if not fossa_payment:
         fossa_payment = FossaPayment(
             id=lnurl_payload.payload,
             fossa_id=fossa.id,
-            amount=decrypted.amount,
-            sats=amount_sat,
+            sats=price_sat,
+            amount=amount_sat,
             pin=decrypted.pin,
             payload=lnurl,
             payment_hash="pending",
@@ -220,7 +220,7 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             id=lnurl_payload.payload,
             fossa_id=fossa.id,
             sats=price_sat,
-            amount=decrypted.amount,
+            amount=amount_sats,
             pin=decrypted.pin,
             payload=lnurl_payload,
         )
