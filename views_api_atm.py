@@ -248,20 +248,18 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             )
             response.raise_for_status()
             resp = response.json()
-            # TODO get payment_hash from boltz reverse swap
-            print("BOLTZ RESPONSE")
-            print(resp)
-            fossa_payment = FossaPayment(
-                id=lnurl_payload.payload,
-                fossa_id=fossa.id,
-                amount=decrypted.amount,
-                sats=amount_sats,
-                pin=decrypted.pin,
-                payload=lnurl,
-                payment_hash=resp.get("payment_hash", "invalid_boltz_payment_hash"),
-            )
-            await create_fossa_payment(fossa_payment)
-            return resp
+            if not resp.get("payment_hash"):
+                fossa_payment.payment_hash = None
+                await update_fossa_payment(fossa_payment)
+                raise HTTPException(
+                    status_code=HTTPStatus.NOT_FOUND,
+                    detail="Boltz payment could not be made, try again later",
+                )
+            else:
+                fossa_payment.payment_hash = resp.get("payment_hash")
+                await update_fossa_payment(fossa_payment)
+                return resp
+            
     except Exception as e:
         fossa_payment.payment_hash = None
         await update_fossa_payment(fossa_payment)
