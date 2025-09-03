@@ -15,7 +15,6 @@ from lnbits.helpers import is_valid_email_address
 from lnbits.settings import settings
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnurl import LnurlPayActionResponse, LnurlPayResponse
-from lnurl import encode as lnurl_encode
 from lnurl import execute_pay_request as lnurl_execute_pay_request
 from lnurl import handle as lnurl_handle
 
@@ -147,8 +146,6 @@ async def get_fossa_payment_lightning(
     price_sat = int(price_sat * ((fossa.profit / 100) + 1))
     ln = await _validate_payment_request(pr, amount_sat * 1000)
     fossa_payment = await get_fossa_payment(lnurl_payload.payload)
-    url = request.url_for("fossa.lnurl_params", fossa_id=fossa.id)
-    lnurl_payload = str(lnurl_encode(str(url) + f"?p={lnurl_payload.payload}"))
     if not fossa_payment:
         fossa_payment = FossaPayment(
             id=lnurl_payload.payload,
@@ -156,7 +153,7 @@ async def get_fossa_payment_lightning(
             sats=price_sat,
             amount=amount_sat,
             pin=decrypted.pin,
-            payload=lnurl_payload,
+            payload=lnurl,
             payment_hash="pending",
         )
         await create_fossa_payment(fossa_payment)
