@@ -3,7 +3,7 @@ from math import ceil
 
 import bolt11
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from lnbits.core.crud import get_user, get_wallet
 from lnbits.core.models import SimpleStatus, WalletTypeInfo
 from lnbits.core.services import pay_invoice
@@ -101,9 +101,7 @@ async def _validate_payment_request(pr: str, amount_msat: int) -> str:
 
 
 @fossa_api_atm_router.get("/api/v1/ln/{lnurl}/{pr}")
-async def get_fossa_payment_lightning(
-    request: Request, lnurl: str, pr: str
-) -> SimpleStatus:
+async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
     """
     Handle Lightning payments for atms via invoice, lnaddress, lnurlp.
     """
@@ -189,9 +187,7 @@ async def get_fossa_payment_lightning(
 
 
 @fossa_api_atm_router.get("/api/v1/boltz/{lnurl}/{onchain_liquid}/{address}")
-async def get_fossa_payment_boltz(
-    request: Request, lnurl: str, onchain_liquid: str, address: str
-):
+async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str):
     """
     Handle Boltz payments for atms.
     """
