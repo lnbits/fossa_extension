@@ -100,10 +100,10 @@ async def _validate_payment_request(pr: str, amount_msat: int) -> str:
     return ln
 
 
-@fossa_api_atm_router.get("/api/v1/ln/{lnurl}/{pr}")
-async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
+@fossa_api_atm_router.get("/api/v1/ln/{lnurl}/{withdraw_request}")
+async def get_fossa_payment_lightning(lnurl: str, withdraw_request: str) -> SimpleStatus:
     """
-    Handle Lightning payments for atms via invoice, lnaddress, lnurlp.
+    Handle Lightning payments for atms via invoice, lnaddress, lnurlp (withdraw_request)
     """
     lnurl_payload = parse_lnurl_payload(lnurl)
     fossa = await get_fossa(lnurl_payload.fossa_id)
@@ -142,7 +142,7 @@ async def get_fossa_payment_lightning(lnurl: str, pr: str) -> SimpleStatus:
         )
 
     price_sat = int(price_sat * ((fossa.profit / 100) + 1))
-    ln = await _validate_payment_request(pr, amount_sat * 1000)
+    ln = await _validate_payment_request(withdraw_request, amount_sat * 1000)
     fossa_payment = await get_fossa_payment(lnurl_payload.payload)
     if not fossa_payment:
         fossa_payment = FossaPayment(
