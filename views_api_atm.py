@@ -29,7 +29,8 @@ from .crud import (
 )
 from .helpers import aes_decrypt_payload, parse_lnurl_payload
 from .models import FossaPayment
-
+from loguru import logger
+from lnurl import url_decode
 fossa_api_atm_router = APIRouter()
 
 
@@ -153,7 +154,7 @@ async def get_fossa_payment_lightning(
             sats=price_sat,
             amount=amount_sat,
             pin=decrypted.pin,
-            payload=lnurl,
+            payload=str(url_decode(lnurl)),
             payment_hash="pending",
         )
         await create_fossa_payment(fossa_payment)
@@ -241,7 +242,7 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             sats=price_sat,
             amount=amount_sats,
             pin=decrypted.pin,
-            payload=lnurl,
+            payload=str(url_decode(lnurl)),
         )
         await create_fossa_payment(fossa_payment)
     else:
@@ -271,6 +272,7 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             )
             response.raise_for_status()
             resp = response.json()
+            logger.debug(resp)
             assert resp.get("payment_hash")
             # swap succeeded, update to the actual payment hash
             fossa_payment.payment_hash = resp.get("payment_hash")
