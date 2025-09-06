@@ -29,14 +29,16 @@ async def on_invoice_paid(payment: Payment) -> None:
 
             swap = await api_swap_status(swap_id)
             if swap:
-                payment = await get_fossa_payment_by_hash("pending_swap_" + swap_id)
-                if not payment:
+                fossa_payment = await get_fossa_payment_by_hash(
+                    "pending_swap_" + swap_id
+                )
+                if not fossa_payment:
                     logger.error(
                         f"Boltz: could not find fossa payment for swap {swap_id}"
                     )
                     return
-                payment.payment_hash = swap_id
-                await update_fossa_payment(payment)
+                fossa_payment.payment_hash = swap_id
+                await update_fossa_payment(fossa_payment)
                 await websocket_updater("pending_swap_" + swap_id, "Paid")
                 return
         except Exception:
