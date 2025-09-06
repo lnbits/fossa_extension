@@ -58,7 +58,6 @@ async def fossa_lnurl_params(
     if price_sat is None:
         return LnurlErrorResponse(reason="Price fetch error.")
 
-    price_sat = int(price_sat * ((fossa.profit / 100) + 1))
     amount_sats = await fossa.amount_to_sats(decrypted.amount)
     url = request.url_for("fossa.lnurl_params", fossa_id=fossa.id)
     lnurl_payload = str(lnurl_encode(str(url) + f"?p={payload}"))

@@ -78,7 +78,7 @@ async def atmpage(request: Request, lightning: str):
             status_code=HTTPStatus.NOT_FOUND, detail="Price fetch error."
         )
 
-    price_sat = int(price_sat * ((fossa.profit / 100) + 1))
+    amount_sats = await fossa.amount_to_sats(decrypted.amount)
 
     # get to determine if the payload has been used
     payment = await get_fossa_payment(lnurl_payload.payload)
@@ -97,7 +97,7 @@ async def atmpage(request: Request, lightning: str):
         {
             "request": request,
             "lnurl": lightning,
-            "amount_sat": price_sat,
+            "amount_sat": amount_sats,
             "fossa_id": fossa.id,
             "boltz": fossa.boltz,
             "used": bool(
