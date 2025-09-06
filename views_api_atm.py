@@ -263,10 +263,16 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
         await create_fossa_payment(fossa_payment)
     else:
         if fossa_payment.payment_hash:
-            raise HTTPException(
-                status_code=HTTPStatus.NOT_FOUND,
-                detail="Payment already claimed.",
-            )
+            if fossa_payment.payment_hash.startswith("pending_swap_"):
+                raise HTTPException(
+                    status_code=HTTPStatus.NOT_FOUND,
+                    detail="Payment already pending.",
+                )
+            else:
+                raise HTTPException(
+                    status_code=HTTPStatus.NOT_FOUND,
+                    detail="Payment already claimed.",
+                )
     try:
         # set to pending and pay invoice in background to prevent double spending
         fossa_payment.payment_hash = "pending"
