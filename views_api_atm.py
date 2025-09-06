@@ -19,6 +19,8 @@ from lnurl import execute_pay_request as lnurl_execute_pay_request
 from lnurl import handle as lnurl_handle
 from loguru import logger
 
+from datetime import datetime, timedelta, timezone
+
 from .crud import (
     create_fossa_payment,
     delete_atm_payment_link,
@@ -47,6 +49,20 @@ async def api_atm_payments_retrieve(
     ids = []
     for fossa in fossas:
         ids.append(fossa.id)
+    fossa_payments = await get_fossa_payments(ids)
+
+    # Loop through any attempting swaps and if they failed clear them after 10 minutes
+    ten_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+    for payment in fossa_payments:
+        if (
+            payment.payment_hash
+            and payment.payment_hash.startswith("pending_swap_")
+            and payment.timestamp < ten_minutes_ago
+        ):
+            payment.payment_hash = None
+            await update_fossa_payment(payment)
+
+    # get updated payments list
     return await get_fossa_payments(ids)
 
 
@@ -273,9 +289,8 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             response.raise_for_status()
             resp = response.json()
             logger.debug(resp)
-            assert resp.get("preimage")
-            # swap succeeded, update to the actual payment hash
-            fossa_payment.payment_hash = resp.get("preimage")
+            assert resp.get("id")
+            fossa_payment.payment_hash = "pending_swap_" + resp.get("id")
             await update_fossa_payment(fossa_payment)
             return resp
 

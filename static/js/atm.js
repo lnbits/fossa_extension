@@ -52,15 +52,16 @@ window.app = Vue.createApp({
         )
         if (response.data) {
           this.ln = ''
-          this.notifyUser('Payment should be with you shortly', 'positive')
+          this.notifyUser('Payment processing...\n(if not received, try again in 10mins)', 'positive')
         }
+        this.connectWebsocket(websocket_id)
       } catch (error) {
         LNbits.utils.notifyApiError(error)
       }
     },
-    connectWebsocket(payment_id) {
+    connectWebsocket(websocket_id) {
       const protocol = location.protocol === 'https:' ? 'wss://' : 'ws://'
-      const localUrl = `${protocol}${document.domain}:${location.port}/api/v1/ws/${review_id}` // Ensure review_id is defined or passed correctly
+      const localUrl = `${protocol}${document.domain}:${location.port}/api/v1/ws/${websocket_id}` // Ensure review_id is defined or passed correctly
       this.connection = new WebSocket(localUrl)
       this.connection.onmessage = () => {
         this.notifyUser('Payment sent!', 'positive')

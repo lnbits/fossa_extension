@@ -62,13 +62,21 @@ async def update_fossa_payment(fossa_payment: FossaPayment) -> FossaPayment:
 
 async def get_fossa_payment(
     fossa_payment_id: str,
-) -> FossaPayment | None:
+) -> FossaPayment:
     return await db.fetchone(
         "SELECT * FROM fossa.fossa_payment WHERE id = :id",
         {"id": fossa_payment_id},
         FossaPayment,
     )
 
+async def get_fossa_payment_by_hash(
+    payment_hash: str,
+) -> FossaPayment:
+    return await db.fetchone(
+        "SELECT * FROM fossa.fossa_payment WHERE payment_hash = :payment_hash",
+        {"payment_hash": payment_hash},
+        FossaPayment,
+    )
 
 async def get_fossa_payments(
     fossa_ids: list[str],
