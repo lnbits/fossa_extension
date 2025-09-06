@@ -69,6 +69,7 @@ async def get_fossa_payment(
         FossaPayment,
     )
 
+
 async def get_fossa_payment_by_hash(
     payment_hash: str,
 ) -> FossaPayment:
@@ -77,6 +78,7 @@ async def get_fossa_payment_by_hash(
         {"payment_hash": payment_hash},
         FossaPayment,
     )
+
 
 async def get_fossa_payments(
     fossa_ids: list[str],

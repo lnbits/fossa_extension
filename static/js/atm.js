@@ -52,7 +52,10 @@ window.app = Vue.createApp({
         )
         if (response.data) {
           this.ln = ''
-          this.notifyUser('Payment processing...\n(if not received, try again in 10mins)', 'positive')
+          this.notifyUser(
+            'Payment processing...\n(if not received, try again in 10mins)',
+            'positive'
+          )
         }
         this.connectWebsocket(websocket_id)
       } catch (error) {

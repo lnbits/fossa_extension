@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from math import ceil
 
@@ -18,10 +19,10 @@ from .crud import (
     get_fossa_payment,
     update_fossa_payment,
 )
-
 from .helpers import aes_decrypt_payload, parse_lnurl_payload
-from datetime import datetime, timedelta, timezone
+
 fossa_generic_router = APIRouter()
+
 
 def fossa_renderer():
     return template_renderer(["fossa/templates"])
@@ -83,13 +84,13 @@ async def atmpage(request: Request, lightning: str):
     payment = await get_fossa_payment(lnurl_payload.payload)
     ten_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
     if (
-            payment
-            and payment.payment_hash
-            and payment.payment_hash.startswith("pending_swap_")
-            and payment.timestamp < ten_minutes_ago
-        ):
-            payment.payment_hash = None
-            payment = await update_fossa_payment(payment)
+        payment
+        and payment.payment_hash
+        and payment.payment_hash.startswith("pending_swap_")
+        and payment.timestamp < ten_minutes_ago
+    ):
+        payment.payment_hash = None
+        payment = await update_fossa_payment(payment)
 
     return fossa_renderer().TemplateResponse(
         "fossa/atm.html",
@@ -99,7 +100,11 @@ async def atmpage(request: Request, lightning: str):
             "amount_sat": price_sat,
             "fossa_id": fossa.id,
             "boltz": fossa.boltz,
-            "used": bool(payment and payment.payment_hash and not payment.payment_hash.startswith("pending_swap_")),
+            "used": bool(
+                payment
+                and payment.payment_hash
+                and not payment.payment_hash.startswith("pending_swap_")
+            ),
             "recentpay": getattr(payment, "id", None),
         },
     )
