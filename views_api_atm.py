@@ -273,9 +273,9 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             response.raise_for_status()
             resp = response.json()
             logger.debug(resp)
-            assert resp.get("payment_hash")
+            assert resp.get("preimage")
             # swap succeeded, update to the actual payment hash
-            fossa_payment.payment_hash = resp.get("payment_hash")
+            fossa_payment.payment_hash = resp.get("preimage")
             await update_fossa_payment(fossa_payment)
             return resp
 
