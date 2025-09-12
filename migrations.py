@@ -40,6 +40,6 @@ async def m002_addcolumn_amount(db):
     await db.execute(
         """
         ALTER TABLE fossa.fossa_payment
-        ADD COLUMN amount FLOAT NOT NULL;
+        ADD COLUMN amount FLOAT NOT NULL DEFAULT 0;
         """
     )
