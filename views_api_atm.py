@@ -78,8 +78,14 @@ async def api_atm_payment_delete(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Fossa does not exist"
         )
-    if fossa.wallet != wallet.wallet:
-        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not authorized")
+    fetched_wallet = await get_wallet(fossa.wallet)
+    if not fetched_wallet:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Payment could not be deleted",
+        )
+    if fetched_wallet.user != wallet.wallet.user:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your fossa")
 
     await delete_atm_payment_link(atm_id)
 

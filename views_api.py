@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from fastapi import APIRouter, Depends, HTTPException
-from lnbits.core.crud import get_user
+from lnbits.core.crud import get_user, get_wallet
 from lnbits.core.models import WalletTypeInfo
 from lnbits.decorators import (
     require_admin_key,
@@ -38,7 +38,13 @@ async def api_fossa_retrieve(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="fossa does not exist"
         )
-    if fossa.wallet != wallet.wallet.id:
+    fetched_wallet = await get_wallet(fossa.wallet)
+    if not fetched_wallet:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Wallet does not exist.",
+        )
+    if fetched_wallet.user != wallet.wallet.user:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your fossa")
     return fossa
 
@@ -59,7 +65,13 @@ async def api_fossa_update(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Fossa does not exist."
         )
-    if fossa.wallet != wallet.wallet.id:
+    fetched_wallet = await get_wallet(fossa.wallet)
+    if not fetched_wallet:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Wallet does not exist.",
+        )
+    if fetched_wallet.user != wallet.wallet.user:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your fossa")
     for k, v in data.dict().items():
         setattr(fossa, k, v)
@@ -75,7 +87,13 @@ async def api_fossa_delete(
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Fossa does not exist."
         )
-    if fossa.wallet != wallet.wallet.id:
+    fetched_wallet = await get_wallet(fossa.wallet)
+    if not fetched_wallet:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Wallet does not exist.",
+        )
+    if fetched_wallet.user != wallet.wallet.user:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your fossa")
 
     await delete_fossa(fossa_id)
