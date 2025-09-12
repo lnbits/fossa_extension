@@ -1,6 +1,10 @@
+import asyncio
+
 from fastapi import APIRouter
+from loguru import logger
 
 from .crud import db
+from .tasks import wait_for_paid_invoices
 from .views import fossa_generic_router
 from .views_api import fossa_api_router
 from .views_api_atm import fossa_api_atm_router
@@ -19,9 +23,24 @@ fossa_static_files = [
     }
 ]
 
+scheduled_tasks: list[asyncio.Task] = []
 
-__all__ = [
-    "db",
-    "fossa_ext",
-    "fossa_static_files",
-]
+
+def fossa_stop():
+    for task in scheduled_tasks:
+        try:
+            task.cancel()
+        except Exception as ex:
+            logger.warning(ex)
+
+
+def fossa_start():
+    from lnbits.tasks import create_permanent_unique_task
+
+    paid_invoices = create_permanent_unique_task(
+        "ext_boltz_paid_invoices", wait_for_paid_invoices
+    )
+    scheduled_tasks.append(paid_invoices)
+
+
+__all__ = ["db", "fossa_ext", "fossa_start", "fossa_static_files", "fossa_stop"]

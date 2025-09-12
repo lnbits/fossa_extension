@@ -58,8 +58,7 @@ async def fossa_lnurl_params(
     if price_sat is None:
         return LnurlErrorResponse(reason="Price fetch error.")
 
-    price_sat = int(price_sat * ((fossa.profit / 100) + 1))
-
+    amount_sats = await fossa.amount_to_sats(decrypted.amount)
     url = request.url_for("fossa.lnurl_params", fossa_id=fossa.id)
     lnurl_payload = str(lnurl_encode(str(url) + f"?p={payload}"))
     fossa_payment = await get_fossa_payment(payload)
@@ -68,7 +67,7 @@ async def fossa_lnurl_params(
             id=payload,
             fossa_id=fossa.id,
             sats=price_sat,
-            amount=decrypted.amount,
+            amount=amount_sats,
             pin=decrypted.pin,
             payload=lnurl_payload,
         )
@@ -79,12 +78,15 @@ async def fossa_lnurl_params(
 
     url = request.url_for("fossa.lnurl_callback", payment_id=payload)
     callback = parse_obj_as(CallbackUrl, str(url))
+    prepare_description = (
+        f"{fossa.title} ID: {fossa_payment.id} ATM Fee: {fossa.profit}%"
+    )
     return LnurlWithdrawResponse(
         callback=callback,
         k1=fossa_payment.id,
-        minWithdrawable=MilliSatoshi(fossa_payment.sats * 1000),
-        maxWithdrawable=MilliSatoshi(fossa_payment.sats * 1000),
-        defaultDescription=f"{fossa.title} ID: {fossa_payment.id}",
+        minWithdrawable=MilliSatoshi(fossa_payment.amount * 1000),
+        maxWithdrawable=MilliSatoshi(fossa_payment.amount * 1000),
+        defaultDescription=prepare_description,
     )
 
 
@@ -120,7 +122,7 @@ async def lnurl_callback(
     wallet = await get_wallet(fossa.wallet)
     if not wallet:
         return LnurlErrorResponse(reason="Wallet not found.")
-    if wallet.balance < fossa_payment.sats:
+    if wallet.balance < fossa_payment.amount:
         return LnurlErrorResponse(reason="Not enough funds in wallet.")
 
     try:
@@ -132,7 +134,7 @@ async def lnurl_callback(
             payment = await pay_invoice(
                 wallet_id=fossa.wallet,
                 payment_request=pr,
-                max_sat=int(fossa_payment.sats) + 100,
+                max_sat=int(fossa_payment.amount),
                 extra={"tag": "fossa"},
             )
             fossa_payment.payment_hash = payment.payment_hash
