@@ -65,6 +65,13 @@ window.app = Vue.createApp({
             sortable: true
           },
           {
+            name: 'payment_hash',
+            align: 'left',
+            label: 'Payment Hash',
+            field: 'payment_hash',
+            sortable: true
+          },
+          {
             name: 'time',
             align: 'left',
             label: 'Date',

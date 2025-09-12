@@ -53,7 +53,7 @@ window.app = Vue.createApp({
         if (response.data) {
           this.ln = ''
           this.notifyUser(
-            'Payment processing...\n(if not received, try again in 10mins)',
+            'Payment processing... you will receive your funds shortly',
             'positive'
           )
         }

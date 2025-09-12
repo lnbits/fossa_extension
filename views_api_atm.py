@@ -18,7 +18,6 @@ from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnurl import LnurlPayActionResponse, LnurlPayResponse, url_decode
 from lnurl import execute_pay_request as lnurl_execute_pay_request
 from lnurl import handle as lnurl_handle
-from loguru import logger
 
 from .crud import (
     create_fossa_payment,
@@ -65,15 +64,22 @@ async def api_atm_payments_retrieve(
     return await get_fossa_payments(ids)
 
 
-@fossa_api_atm_router.delete(
-    "/api/v1/atm/{atm_id}", dependencies=[Depends(require_admin_key)]
-)
-async def api_atm_payment_delete(atm_id: str):
-    fossa = await get_fossa_payment(atm_id)
-    if not fossa:
+@fossa_api_atm_router.delete("/api/v1/atm/{atm_id}")
+async def api_atm_payment_delete(
+    atm_id: str, wallet: WalletTypeInfo = Depends(require_admin_key)
+) -> None:
+    fossa_payment = await get_fossa_payment(atm_id)
+    if not fossa_payment:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="ATM payment does not exist."
         )
+    fossa = await get_fossa(fossa_payment.fossa_id)
+    if not fossa:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Fossa does not exist"
+        )
+    if fossa.wallet != wallet.wallet:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not authorized")
 
     await delete_atm_payment_link(atm_id)
 
@@ -262,16 +268,10 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
         await create_fossa_payment(fossa_payment)
     else:
         if fossa_payment.payment_hash:
-            if fossa_payment.payment_hash.startswith("pending_swap_"):
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND,
-                    detail="Payment already pending.",
-                )
-            else:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND,
-                    detail="Payment already claimed.",
-                )
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Payment already claimed.",
+            )
     try:
         # set to pending and pay invoice in background to prevent double spending
         fossa_payment.payment_hash = "pending"
@@ -293,9 +293,12 @@ async def get_fossa_payment_boltz(lnurl: str, onchain_liquid: str, address: str)
             )
             response.raise_for_status()
             resp = response.json()
-            logger.debug(resp)
-            assert resp.get("id")
-            fossa_payment.payment_hash = "pending_swap_" + resp.get("id")
+            if not resp.get("preimage"):
+                raise HTTPException(
+                    status_code=HTTPStatus.NOT_FOUND,
+                    detail="Boltz payment could not be made, try again later",
+                )
+            fossa_payment.payment_hash = resp.get("id")
             await update_fossa_payment(fossa_payment)
             return resp
 

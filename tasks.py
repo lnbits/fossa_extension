@@ -6,6 +6,7 @@ from lnbits.core.models import Payment
 from lnbits.core.services import websocket_updater
 from lnbits.settings import settings
 from lnbits.tasks import register_invoice_listener
+from loguru import logger
 
 from .crud import get_fossa, get_fossa_payment_by_hash, update_fossa_payment
 
@@ -20,11 +21,12 @@ async def wait_for_paid_invoices():
 
 
 async def on_invoice_paid(payment: Payment) -> None:
-
+    logger.debug(f"Fossa received paid invoice: {payment}")
     if payment.extra.get("tag") != "boltz":
         return
 
     swap_id = payment.extra.get("swap_id")
+    logger.debug(f"Boltz swap_id: {swap_id}")
     if swap_id:
         fossa_payment = await get_fossa_payment_by_hash("pending_swap_" + swap_id)
         if not fossa_payment:
