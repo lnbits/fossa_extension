@@ -4,7 +4,8 @@ version = "0.0.0"
 requires-python = ">=3.10,<3.13"
 description = "LNbits, free and open-source Lightning wallet and accounts system."
 authors = [{ name = "Alan Bits", email = "alan@lnbits.com" }]
-urls = { Homepage = "https://lnbits.com", Repository = "https://github.com/lnbits/bitcoinswitch_extension" }
+urls = { Homepage = "https://lnbits.com", Repository = "https://github.com/lnbits/fossa_extension" }
+
 dependencies = [ "lnbits>1" ]
 
 [tool.uv]
@@ -12,11 +13,14 @@ dev-dependencies = [
     "black",
     "pytest-asyncio",
     "pytest",
-    "mypy",
+    "mypy==1.17.1",
     "pre-commit",
     "ruff",
     "pytest-md",
 ]
+
+[tool.poetry]
+package-mode = false
 
 [tool.mypy]
 plugins = "pydantic.mypy"
