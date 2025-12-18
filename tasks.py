@@ -21,7 +21,6 @@ async def wait_for_paid_invoices():
 
 
 async def on_invoice_paid(payment: Payment) -> None:
-    logger.debug(f"Fossa received paid invoice: {payment}")
     if payment.extra.get("tag") != "boltz":
         return
 
