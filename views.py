@@ -32,7 +32,7 @@ def fossa_renderer():
 async def index(request: Request, user: User = Depends(check_user_exists)):
     return fossa_renderer().TemplateResponse(
         "fossa/index.html",
-        {"request": request, "user": user.json()},
+        {"request": request, "user": user.model_dump_json()},
     )
 
 

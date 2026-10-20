@@ -73,7 +73,7 @@ async def api_fossa_update(
         )
     if fetched_wallet.user != wallet.wallet.user:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your fossa")
-    for k, v in data.dict().items():
+    for k, v in data.model_dump().items():
         setattr(fossa, k, v)
     return await update_fossa(fossa)
 
