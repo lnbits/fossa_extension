@@ -15,7 +15,7 @@ from lnurl import (
 )
 from lnurl import encode as lnurl_encode
 from loguru import logger
-from pydantic import parse_obj_as
+from pydantic import TypeAdapter
 
 from .crud import (
     create_fossa_payment,
@@ -77,7 +77,7 @@ async def fossa_lnurl_params(
             return LnurlErrorResponse(reason="Payment already claimed.")
 
     url = request.url_for("fossa.lnurl_callback", payment_id=payload)
-    callback = parse_obj_as(CallbackUrl, str(url))
+    callback = TypeAdapter(CallbackUrl).validate_python(str(url))
     prepare_description = (
         f"{fossa.title} ID: {fossa_payment.id} ATM Fee: {fossa.profit}%"
     )
