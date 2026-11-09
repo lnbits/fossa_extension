@@ -3,7 +3,11 @@ from datetime import datetime, timezone
 
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
 from lnurl.types import LnurlPayMetadata
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+ONCHAIN_UNAVAILABLE_MESSAGE = (
+    "On-chain and Liquid payouts are unavailable until a replacement provider is added."
+)
 
 
 class LnurlDecrypted(BaseModel):
@@ -22,6 +26,13 @@ class CreateFossa(BaseModel):
     currency: str
     profit: float
     boltz: bool = False
+
+    @field_validator("boltz")
+    @classmethod
+    def reject_onchain_support(cls, value: bool) -> bool:
+        if value:
+            raise ValueError(ONCHAIN_UNAVAILABLE_MESSAGE)
+        return value
 
 
 class Fossa(BaseModel):

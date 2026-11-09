@@ -4,10 +4,7 @@ from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from lnbits.core.crud import (
-    get_installed_extensions,
-    get_wallet,
-)
+from lnbits.core.crud import get_wallet
 from lnbits.core.models import User
 from lnbits.decorators import check_user_exists
 from lnbits.helpers import template_renderer
@@ -52,14 +49,6 @@ async def atmpage(request: Request, lightning: str):
             status_code=HTTPStatus.NOT_FOUND, detail="Wallet not found."
         )
 
-    # check if boltz payouts is enabled but also check the boltz extension is enabled
-    if fossa.boltz:
-        fossa.boltz = False
-        installed_extensions = await get_installed_extensions(active=True)
-        for extension in installed_extensions:
-            if extension.id == "boltz" and extension.active:
-                fossa.boltz = True
-
     # decrypt the payload to get the amount
     try:
         decrypted = aes_decrypt_payload(lnurl_payload.payload, fossa.key)
@@ -99,7 +88,7 @@ async def atmpage(request: Request, lightning: str):
             "lnurl": lightning,
             "amount_sat": amount_sats,
             "fossa_id": fossa.id,
-            "boltz": fossa.boltz,
+            "boltz": False,
             "used": bool(
                 payment
                 and payment.payment_hash

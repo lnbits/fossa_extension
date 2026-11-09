@@ -116,6 +116,7 @@ window.app = Vue.createApp({
       }
     },
     sendFormData() {
+      this.formDialog.data.boltz = false
       if (!this.formDialog.data.profit) {
         this.formDialog.data.profit = 0
       }

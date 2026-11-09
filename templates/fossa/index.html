@@ -284,9 +284,13 @@
           label="Profit margin (% added to invoices/deducted from faucets)"
         ></q-input>
         <q-toggle
-          :label="formDialog.data.boltz ? 'Onchain/liquid support enabled (boltz ext must be enabled)' : 'Onchain/liquid support disabled'"
-          v-model="formDialog.data.boltz"
+          label="On-chain/Liquid support unavailable"
+          :model-value="false"
+          disable
         ></q-toggle>
+        <div class="text-caption text-grey">
+          Disabled while a replacement swap provider is integrated.
+        </div>
         <div class="row q-mt-lg">
           <q-btn
             v-if="formDialog.data.id"

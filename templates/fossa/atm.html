@@ -34,7 +34,9 @@
               >Amount is too small to send over onchain, needs to be 50000+
               sats</q-tooltip
             >
-            <q-tooltip v-if="!boltz">Onchain not available</q-tooltip>
+            <q-tooltip v-if="!boltz"
+              >On-chain payouts are currently unavailable</q-tooltip
+            >
           </q-tab>
 
           <q-tab
@@ -47,7 +49,9 @@
               >Amount is too small to send over liquid, needs to be 300+
               sats</q-tooltip
             >
-            <q-tooltip v-if="!boltz">Onchain not available</q-tooltip>
+            <q-tooltip v-if="!boltz"
+              >Liquid payouts are currently unavailable</q-tooltip
+            >
           </q-tab>
         </q-tabs>
         <q-separator></q-separator>
