@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from lnbits.core.crud import get_user, get_wallet
 from lnbits.core.models import SimpleStatus, WalletTypeInfo
 from lnbits.core.services import pay_invoice
+from lnbits.core.services.lnurl import get_pr_from_lnurl
 from lnbits.decorators import (
     check_user_extension_access,
     require_admin_key,
@@ -15,9 +16,7 @@ from lnbits.decorators import (
 from lnbits.helpers import is_valid_email_address
 from lnbits.settings import settings
 from lnbits.utils.exchange_rates import fiat_amount_as_satoshis
-from lnurl import LnurlPayActionResponse, LnurlPayResponse, url_decode
-from lnurl import execute_pay_request as lnurl_execute_pay_request
-from lnurl import handle as lnurl_handle
+from lnurl import url_decode
 
 from .crud import (
     create_fossa_payment,
@@ -95,20 +94,13 @@ async def _validate_payment_request(pr: str, amount_msat: int) -> str:
     if pr.startswith("lnbc"):
         ln = pr
     elif pr.startswith("lnurl1") or is_valid_email_address(pr):
-        res = await lnurl_handle(pr)
-        if not isinstance(res, LnurlPayResponse):
-            raise HTTPException(
-                status_code=HTTPStatus.FORBIDDEN, detail="Not valid LNURL Pay response"
-            )
-        res2 = await lnurl_execute_pay_request(
-            res, msat=amount_msat, user_agent=settings.user_agent
-        )
-        if not isinstance(res2, LnurlPayActionResponse):
+        try:
+            ln = await get_pr_from_lnurl(pr, amount_msat)
+        except Exception as exc:
             raise HTTPException(
                 status_code=HTTPStatus.FORBIDDEN,
-                detail="Not valid LNURL Pay action response",
-            )
-        ln = res2.pr
+                detail="Not valid LNURL Pay response",
+            ) from exc
     else:
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN, detail="Not valid payment request"
