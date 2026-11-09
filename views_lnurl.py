@@ -33,6 +33,7 @@ fossa_lnurl_router = APIRouter(prefix="/api/v1/lnurl")
     "/{fossa_id}",
     status_code=HTTPStatus.OK,
     name="fossa.lnurl_params",
+    openapi_extra={"x-lnbits-local-lnurl": True},
 )
 async def fossa_lnurl_params(
     request: Request,
@@ -94,6 +95,7 @@ async def fossa_lnurl_params(
     "/cb/{payment_id}",
     status_code=HTTPStatus.OK,
     name="fossa.lnurl_callback",
+    openapi_extra={"x-lnbits-local-lnurl": True},
 )
 async def lnurl_callback(
     payment_id: str,
