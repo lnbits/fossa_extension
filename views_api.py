@@ -49,8 +49,19 @@ async def api_fossa_retrieve(
     return fossa
 
 
-@fossa_api_router.post("/api/v1/fossa", dependencies=[Depends(require_admin_key)])
-async def api_fossa_create(data: CreateFossa) -> Fossa:
+@fossa_api_router.post("/api/v1/fossa")
+async def api_fossa_create(
+    data: CreateFossa,
+    wallet: WalletTypeInfo = Depends(require_admin_key),
+) -> Fossa:
+    fetched_wallet = await get_wallet(data.wallet)
+    if not fetched_wallet:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Wallet does not exist.",
+        )
+    if fetched_wallet.user != wallet.wallet.user:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your wallet")
     return await create_fossa(data)
 
 
@@ -73,6 +84,14 @@ async def api_fossa_update(
         )
     if fetched_wallet.user != wallet.wallet.user:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your fossa")
+    target_wallet = await get_wallet(data.wallet)
+    if not target_wallet:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Wallet does not exist.",
+        )
+    if target_wallet.user != wallet.wallet.user:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="Not your wallet")
     for k, v in data.model_dump().items():
         setattr(fossa, k, v)
     return await update_fossa(fossa)
