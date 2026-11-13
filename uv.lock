@@ -808,7 +808,7 @@ wheels = [
 
 [[package]]
 name = "fossa"
-version = "1.4.0"
+version = "1.4.2"
 source = { virtual = "." }
 dependencies = [
     { name = "lnbits" },
